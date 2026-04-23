@@ -1,0 +1,73 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  link-scraper:
+    build: .
+    image: prn-pipeline
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: prn
+    command: ["python", "py/scrape/scrape_prn.py", "--no-articles", "--loop"]
+
+  article-scraper:
+    build: .
+    image: prn-pipeline
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: prn
+    command: ["python", "py/scrape/scrape_prn.py", "--no-links", "--loop"]
+
+  classifier:
+    build: .
+    image: prn-pipeline
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: prn
+      MODEL_DIR: /models
+      MODEL_VERSION: distilbert-finetuned-v1
+    volumes:
+      - models:/models:ro
+    command: ["python", "py/classify/finetune.py", "--classify", "--loop", "--output-dir", "/models"]
+
+  train:
+    build: .
+    image: prn-pipeline
+    profiles: ["training"]
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: prn
+      MODEL_DIR: /models
+    volumes:
+      - models:/models
+    command: ["python", "py/classify/finetune.py", "--output-dir", "/models"]
+
+volumes:
+  mongo_data:
+  models:

@@ -1,0 +1,9 @@
+requests
+beautifulsoup4
+pymongo
+pandas
+numpy
+scikit-learn
+torch
+transformers
+datasets
