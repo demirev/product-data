@@ -53,6 +53,21 @@ services:
       - models:/models:ro
     command: ["python", "py/classify/finetune.py", "--classify", "--loop", "--output-dir", "/models"]
 
+  labeler:
+    build: .
+    image: prn-pipeline
+    profiles: ["labeling"]
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: prn
+      LABELER_NAME: georgi
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "label.app:app", "--host", "0.0.0.0", "--port", "8000"]
+
   train:
     build: .
     image: prn-pipeline

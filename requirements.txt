@@ -7,3 +7,7 @@ scikit-learn
 torch
 transformers
 datasets
+fastapi
+uvicorn
+jinja2
+python-multipart
