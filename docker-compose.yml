@@ -35,7 +35,10 @@ services:
     environment:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: prn
-    command: ["python", "py/scrape/scrape_prn.py", "--no-links", "--loop"]
+    # Rolls up `companies` whenever its queue empties: this is the only service
+    # that adds scraped releases, so it is the only one whose idle moment means
+    # the derived collection is behind.
+    command: ["python", "py/scrape/scrape_prn.py", "--no-links", "--loop", "--rollup-when-idle"]
 
   classifier:
     build: .
@@ -48,10 +51,49 @@ services:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: prn
       MODEL_DIR: /models
-      MODEL_VERSION: distilbert-finetuned-v1
+      # Unset, each pass serves the newest run in /models/launch and keys its
+      # predictions by that run's version. Set it to pin one, e.g.
+      # MODEL_VERSION: distilbert-finetuned-20260819232201
     volumes:
       - models:/models:ro
-    command: ["python", "py/classify/finetune.py", "--classify", "--loop", "--output-dir", "/models"]
+    command: ["python", "py/classify/finetune.py", "--classify", "--task", "launch", "--loop"]
+
+  # Second stage: only classifies articles the launch model already called
+  # positive, so it sees a few thousand articles rather than the whole corpus.
+  ai-classifier:
+    build: .
+    image: prn-pipeline
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: prn
+      MODEL_DIR: /models
+      # As above: newest run in /models/ai unless pinned.
+    volumes:
+      - models:/models:ro
+    # Gating on the task name rather than a fixed version, so the gate follows
+    # the launch model's newest run. Pass a version string instead to pin it.
+    command: ["python", "py/classify/finetune.py", "--classify", "--task", "ai", "--loop",
+      "--require-relevant-from", "launch"]
+
+  # One-shot jobs. `enrich` stamps company facts onto scraped articles; append
+  # --rollup to rebuild the companies collection from what it stamped. Neither is
+  # needed in steady state — the article scraper stamps as it scrapes and rolls
+  # up when it goes idle — only after an extractor change bumps a version.
+  enrich:
+    build: .
+    image: prn-pipeline
+    profiles: ["enrich"]
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: prn
+    command: ["python", "py/company.py"]
 
   labeler:
     build: .
@@ -64,6 +106,11 @@ services:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: prn
       LABELER_NAME: georgi
+      LABEL_REVIEW_DIR: /app/data/labels-for-review
+      AI_LABEL_REVIEW_DIR: /app/data/ai-labels-for-review
+    volumes:
+      - ./data/labels-for-review:/app/data/labels-for-review:ro
+      - ./data/ai-labels-for-review:/app/data/ai-labels-for-review:ro
     ports:
       - "8000:8000"
     command: ["uvicorn", "label.app:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -81,7 +128,22 @@ services:
       MODEL_DIR: /models
     volumes:
       - models:/models
-    command: ["python", "py/classify/finetune.py", "--output-dir", "/models"]
+    command: ["python", "py/classify/finetune.py", "--task", "launch"]
+
+  ai-train:
+    build: .
+    image: prn-pipeline
+    profiles: ["training"]
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: prn
+      MODEL_DIR: /models
+    volumes:
+      - models:/models
+    command: ["python", "py/classify/finetune.py", "--task", "ai"]
 
 volumes:
   mongo_data:

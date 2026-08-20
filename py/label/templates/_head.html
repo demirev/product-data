@@ -1,0 +1,42 @@
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+<style>
+	body { font-family: -apple-system, system-ui, sans-serif; max-width: 920px; margin: 1.5rem auto; padding: 0 1rem; color: #222; }
+	header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; margin-bottom: 1rem; }
+	header h1 { font-size: 1.1rem; margin: 0; }
+	header .nav { font-size: 0.85rem; }
+	.stats { font-size: 0.85rem; color: #666; }
+	details.rubric { background: #fafafa; border: 1px solid #e3e3e3; border-radius: 6px; padding: 0.5rem 0.9rem; margin-bottom: 1rem; }
+	details.rubric summary { cursor: pointer; font-weight: 600; }
+	details.rubric ul { margin: 0.4rem 0; padding-left: 1.2rem; }
+	details.rubric .tiebreaker { background: #fff3cd; padding: 0.4rem 0.6rem; border-radius: 4px; margin: 0.4rem 0; }
+	.article { border: 1px solid #ddd; border-radius: 6px; padding: 1rem 1.2rem; }
+	.article h2 { margin-top: 0; font-size: 1.05rem; }
+	.meta { font-size: 0.8rem; color: #888; margin-bottom: 0.8rem; }
+	.body { max-height: 380px; overflow-y: auto; white-space: pre-wrap; font-size: 0.92rem; line-height: 1.45; background: #fcfcfc; padding: 0.7rem; border: 1px solid #eee; border-radius: 4px; }
+	.llm { background: #eef6ff; border: 1px solid #c3d9f0; border-radius: 6px; padding: 0.6rem 0.9rem; margin-bottom: 0.8rem; font-size: 0.9rem; }
+	.llm .lbl { font-weight: 600; text-transform: capitalize; }
+	.llm .conf { color: #557; }
+	.llm p { margin: 0.4rem 0 0; color: #334; white-space: pre-wrap; }
+	form { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+	.row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+	.row label { font-size: 0.9rem; }
+	.btn { padding: 0.5rem 1rem; border: 1px solid #aaa; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.95rem; }
+	.btn.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+	.btn.skip { background: #f3f3f3; }
+	textarea { width: 100%; min-height: 50px; padding: 0.4rem; font-family: inherit; }
+	select { padding: 0.3rem; }
+	.metadata { padding: 0.6rem; background: #f8f9ff; border: 1px dashed #c3cee0; border-radius: 4px; }
+	.hint { font-size: 0.85rem; color: #555; margin-bottom: 0.4rem; }
+	.cross { padding: 0.6rem; background: #fffaf0; border: 1px dashed #e0cfa8; border-radius: 4px; font-size: 0.9rem; }
+	.cross .hint { display: block; margin: 0.35rem 0 0; color: #8a7a5c; }
+	.empty { text-align: center; padding: 3rem 1rem; color: #888; }
+	.files { list-style: none; padding: 0; }
+	.files li { border: 1px solid #ddd; border-radius: 6px; padding: 0.7rem 1rem; margin-bottom: 0.6rem; display: flex; justify-content: space-between; align-items: baseline; }
+	.files .prog { font-size: 0.85rem; color: #666; }
+	#card { position: relative; }
+	.spinner-overlay { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; z-index: 10; }
+	#card.htmx-request .spinner-overlay { display: flex; }
+	#card.htmx-request > *:not(.spinner-overlay) { opacity: 0.4; pointer-events: none; }
+	.spinner { width: 2.5rem; height: 2.5rem; border: 4px solid #ccc; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.7s linear infinite; }
+	@keyframes spin { to { transform: rotate(360deg); } }
+</style>

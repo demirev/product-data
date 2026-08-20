@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PRN labeler &mdash; {{ file }}</title>
+{% include "_head.html" %}
+</head>
+<body>
+<header>
+	<h1>PRN labeler &mdash; {{ task.title }} review &mdash; <code>{{ file }}</code></h1>
+	<div class="stats" id="review-stats">
+		{% include "_review_stats.html" %}
+	</div>
+</header>
+
+{% include task.rubric %}
+
+<div id="card-slot">
+	{% include "review_card.html" %}
+</div>
+</body>
+</html>

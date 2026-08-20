@@ -1,20 +1,28 @@
 import os
 import sys
 import re
+import json
 import time
+import tempfile
 import argparse
 import torch
 import numpy as np
 import pandas as pd
 from datetime import datetime, timezone
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score, roc_auc_score
+from sklearn.metrics import (
+	classification_report,
+	accuracy_score,
+	roc_auc_score,
+	confusion_matrix,
+)
 from transformers import (
 	DistilBertTokenizer,
 	DistilBertForSequenceClassification,
 	Trainer,
 	TrainingArguments,
-	EarlyStoppingCallback
+	EarlyStoppingCallback,
+	DataCollatorWithPadding
 )
 from datasets import Dataset
 from pymongo import UpdateOne
@@ -31,9 +39,62 @@ MODEL_CONFIG = {
 	"max_length": 512
 }
 
-OUTPUT_DIR = os.environ.get("MODEL_DIR", "models/press_release_classifier")
-DEFAULT_MODEL_VERSION = os.environ.get("MODEL_VERSION", "distilbert-finetuned-v1")
+MODEL_ROOT = os.environ.get("MODEL_DIR", "models")
+RUNS_COLLECTION = "model_runs"
+# A run directory counts as servable only once both of these exist. Training
+# writes the model first and the tokenizer second, so the tokenizer's presence
+# means the checkpoint is complete — a classifier resolving "newest" against a
+# volume being written to can never pick up a half-saved run.
+RUN_FILES = ("config.json", "tokenizer_config.json")
 IDLE_SLEEP_SECONDS = 24 * 60 * 60
+
+# The two independent questions asked about a press release, each with its own
+# label collection, checkpoint and prediction version. See py/label/app.py.
+#
+# A training run is identified by "<version_prefix>-<UTC timestamp>", and that
+# one string is the directory it lives in under <MODEL_DIR>/<task>, the
+# `model_version` its predictions carry, and its `_id` in `model_runs` — so any
+# prediction traces back to the weights and the eval stats that produced it.
+TASKS = {
+	"launch": {
+		"labels": "labels",
+		"field": "is_relevant",
+		"version_prefix": "distilbert-finetuned",
+		"legacy_version": "distilbert-finetuned-v1",
+	},
+	"ai": {
+		"labels": "ai_labels",
+		"field": "is_ai_product",
+		"version_prefix": "distilbert-ai",
+		"legacy_version": "distilbert-ai-v1",
+	},
+}
+
+
+def resolve_version(task):
+	"""Newest trained run for `task` as `(version, run_dir)`, or `(None, None)`.
+
+	A run directory's name *is* its model version, so "newest" is the last one in
+	lexicographic order — the %Y%m%d%H%M%S stamps sort chronologically.
+	"""
+	task_dir = os.path.join(MODEL_ROOT, task)
+	if not os.path.isdir(task_dir):
+		return None, None
+
+	runs = sorted(
+		d for d in os.listdir(task_dir)
+		if all(os.path.isfile(os.path.join(task_dir, d, f)) for f in RUN_FILES)
+	)
+	if runs:
+		return runs[-1], os.path.join(task_dir, runs[-1])
+
+	# Pre-versioning layout: a single flat checkpoint in the task dir, whose
+	# predictions are keyed by the old fixed version string. Still servable, so
+	# versioning doesn't strand an already-trained model.
+	if all(os.path.isfile(os.path.join(task_dir, f)) for f in RUN_FILES):
+		return TASKS[task]["legacy_version"], task_dir
+	return None, None
+
 
 def search_keyphrases(content, keyphrases):
 	"""Search for keyphrases in the content and return a dictionary with the results."""
@@ -108,10 +169,11 @@ def clean_text(text):
 	return text
 
 
-def load_labeled_data():
-	"""Pull labels joined with article content from Mongo."""
+def load_labeled_data(task="launch"):
+	"""Pull labels for `task` joined with article content from Mongo."""
 	db = get_db()
-	labels = list(db["labels"].find({}, {"_id": 1, "is_relevant": 1}))
+	collection, field = TASKS[task]["labels"], TASKS[task]["field"]
+	labels = list(db[collection].find({}, {"_id": 1, field: 1}))
 	ids = [l["_id"] for l in labels]
 	articles = {
 		a["_id"]: a
@@ -132,23 +194,29 @@ def load_labeled_data():
 		rows.append({
 			"_id": label["_id"],
 			"text": text,
-			"is_relevant": label["is_relevant"],
+			"label": label[field],
 		})
 
 	df = pd.DataFrame(rows)
-	print(f"Loaded {len(df)} labeled press releases")
+	print(f"Loaded {len(df)} labeled press releases for task={task}")
 	return df
 
 
 def tokenize_data(texts, labels=None):
-	"""Tokenize the texts for the model."""
+	"""Tokenize the texts for the model.
+
+	No padding here: the examples stay ragged and the Trainer's collator pads
+	each batch to its own longest member, so a short release costs its own
+	length rather than a full `max_length` of attention. On the current corpus
+	that buys almost nothing — 88% of labelled releases already reach the 512
+	cap — but it stops the padding from being wasted work if shorter documents
+	arrive later.
+	"""
 	tokenizer = MODEL_CONFIG["tokenizer"]
 	encodings = tokenizer(
 		texts, 
 		truncation=True,
-		padding='max_length',
 		max_length=MODEL_CONFIG["max_length"],
-		return_tensors="pt"
 	)
 	
 	# Create a dataset that the trainer can use
@@ -157,7 +225,7 @@ def tokenize_data(texts, labels=None):
 	data['attention_mask'] = encodings['attention_mask']
 	
 	if labels is not None:
-		data['labels'] = torch.tensor(labels, dtype=torch.long)
+		data['labels'] = labels
 	
 	return data
 
@@ -167,7 +235,7 @@ def create_dataset(df, is_train=True):
 	texts = df['text'].tolist()
 	
 	if is_train:
-		labels = df['is_relevant'].astype(int).tolist()
+		labels = df['label'].astype(int).tolist()
 		data = tokenize_data(texts, labels)
 	else:
 		data = tokenize_data(texts)
@@ -175,55 +243,119 @@ def create_dataset(df, is_train=True):
 	return Dataset.from_dict(data)
 
 
-def train_model(
-		train_dataset, 
-		eval_dataset, 
-		output_dir=OUTPUT_DIR, 
-		batch_size=8, 
-		epochs=3
-	):
-	"""Train the model on the provided datasets."""
-	# Create output directory if it doesn't exist
+def train_run(df, task, version, output_dir, batch_size=8, epochs=10):
+	"""Fine-tune one model on `df` and write everything the run produced.
+
+	`output_dir` is left holding exactly the final artefact — weights, tokenizer
+	— plus this run's stats (`metrics.json`, `eval_predictions.csv`). The
+	Trainer's per-epoch checkpoints carry optimiser state and run several hundred
+	MB each; they exist only so `load_best_model_at_end` can restore the best
+	epoch, so they go to a scratch dir that is deleted when training returns.
+
+	The same stats are recorded in the `model_runs` collection under
+	`_id = version`, the string predictions carry as `model_version`.
+	"""
+	train_df, eval_df = train_test_split(
+		df, test_size=0.2, stratify=df["label"], random_state=42
+	)
+	print(f"Training on {len(train_df)} examples, validating on {len(eval_df)} examples")
+	print(f"Class distribution in training set: {train_df['label'].value_counts().to_dict()}")
+
+	train_dataset = create_dataset(train_df)
+	eval_dataset = create_dataset(eval_df)
 	os.makedirs(output_dir, exist_ok=True)
-	
-	# Define training arguments
-	training_args = TrainingArguments(
-		output_dir=output_dir,
-		num_train_epochs=epochs,
-		per_device_train_batch_size=batch_size,
-		per_device_eval_batch_size=batch_size,
-		warmup_steps=500,
-		weight_decay=0.01,
-		logging_dir=f"{output_dir}/logs",
-		logging_steps=10,
-		evaluation_strategy="epoch",
-		save_strategy="epoch",
-		load_best_model_at_end=True,
-		metric_for_best_model="accuracy",
-		greater_is_better=True,
+
+	# Scratch sits beside the run dir, so it lands on the same (roomy) volume.
+	with tempfile.TemporaryDirectory(
+		dir=os.path.dirname(output_dir), prefix=".trainer-"
+	) as scratch:
+		training_args = TrainingArguments(
+			output_dir=scratch,
+			num_train_epochs=epochs,
+			per_device_train_batch_size=batch_size,
+			per_device_eval_batch_size=batch_size,
+			# A float here is a *ratio* of total steps, not a step count: at ~21
+			# steps an epoch a fixed 500 would outlast the whole run, leaving the
+			# LR still ramping when it ends.
+			warmup_steps=0.1,
+			weight_decay=0.01,
+			logging_steps=10,
+			eval_strategy="epoch",
+			save_strategy="epoch",
+			save_total_limit=1,
+			load_best_model_at_end=True,
+			# Accuracy cannot separate these runs — every model that collapses onto
+			# the majority class scores exactly the negative rate — so it selects on
+			# ranking quality instead.
+			metric_for_best_model="eval_roc_auc",
+			greater_is_better=True,
+		)
+
+		trainer = Trainer(
+			model=MODEL_CONFIG["model"],
+			args=training_args,
+			train_dataset=train_dataset,
+			eval_dataset=eval_dataset,
+			data_collator=DataCollatorWithPadding(MODEL_CONFIG["tokenizer"]),
+			compute_metrics=compute_metrics,
+			callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+		)
+		trainer.train()
+
+		# After load_best_model_at_end this is the best epoch's weights, not the
+		# last one's; save through the trainer so it saves the model it holds.
+		trainer.save_model(output_dir)
+		MODEL_CONFIG["tokenizer"].save_pretrained(output_dir)
+
+		# Both eval passes happen while the scratch checkpoints still exist.
+		metrics = trainer.evaluate()
+		pred_output = trainer.predict(eval_dataset)
+
+	logits = pred_output.predictions
+	probabilities = torch.nn.functional.softmax(torch.tensor(logits), dim=1).numpy()
+	eval_results_df = pd.DataFrame({
+		"_id": eval_df["_id"].tolist(),
+		"text": eval_df["text"].tolist(),
+		"true_label": pred_output.label_ids,
+		"predicted_label": np.argmax(logits, axis=1),
+		"probability_relevant": probabilities[:, 1],
+	})
+	eval_results_df["correct"] = (
+		eval_results_df["true_label"] == eval_results_df["predicted_label"]
 	)
-	
-	# Calculate class weights for imbalanced dataset
-	model = MODEL_CONFIG["model"]
-	
-	# Create trainer
-	trainer = Trainer(
-		model=model,
-		args=training_args,
-		train_dataset=train_dataset,
-		eval_dataset=eval_dataset,
-		compute_metrics=compute_metrics,
-		callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
-	)
-	
-	# Train the model
-	trainer.train()
-	
-	# Save the model
-	model.save_pretrained(output_dir)
-	MODEL_CONFIG["tokenizer"].save_pretrained(output_dir)
-	
-	return trainer
+	eval_results_path = os.path.join(output_dir, "eval_predictions.csv")
+	eval_results_df.to_csv(eval_results_path, index=False)
+	print(f"Saved per-example evaluation results to {eval_results_path}")
+
+	now = datetime.now(timezone.utc)
+	# The json round-trip coerces the numpy scalars sklearn and the Trainer return
+	# into plain floats, which both the stats file and pymongo need.
+	record = json.loads(json.dumps({
+		"_id": version,
+		"task": task,
+		"trained_at": now.isoformat(),
+		"base_model": MODEL_CONFIG["model_name"],
+		"checkpoint_dir": output_dir,
+		"epochs": epochs,
+		"batch_size": batch_size,
+		"max_length": MODEL_CONFIG["max_length"],
+		"n_train": len(train_df),
+		"n_eval": len(eval_df),
+		"label_counts": {str(k): int(v) for k, v in df["label"].value_counts().items()},
+		"metrics": metrics,
+	}, default=float))
+
+	metrics_path = os.path.join(output_dir, "metrics.json")
+	with open(metrics_path, "w") as f:
+		json.dump(record, f, indent=2)
+	print(f"Saved run stats to {metrics_path}")
+
+	# Mongo gets a real date; the file keeps the ISO string.
+	record["trained_at"] = now
+	get_db()[RUNS_COLLECTION].replace_one({"_id": version}, record, upsert=True)
+	print(f"Recorded run {version} in {RUNS_COLLECTION}")
+
+	return record
 
 
 def compute_metrics(eval_pred):
@@ -235,9 +367,18 @@ def compute_metrics(eval_pred):
 	probs = torch.nn.functional.softmax(torch.tensor(logits), dim=1).numpy()
 	roc_auc = roc_auc_score(labels, probs[:, 1])  # Using probability of positive class
 	
+	# Spelling out the labels keeps this 2x2 even on an epoch where the model
+	# predicts a single class, which it does while the fresh head settles.
+	tn, fp, fn, tp = confusion_matrix(labels, predictions, labels=[0, 1]).ravel()
+	
 	return {
 		'accuracy': accuracy_score(labels, predictions),
 		'roc_auc': roc_auc,
+		# Each rate is taken over its own true class, so neither moves when the
+		# split's balance does: missed launches over the launches, false alarms
+		# over the non-launches.
+		'false_positive_rate': fp / (fp + tn),
+		'false_negative_rate': fn / (fn + tp),
 		'report': classification_report(labels, predictions, output_dict=True)
 	}
 
@@ -290,7 +431,7 @@ def predict(texts, model=None, tokenizer=None):
 	}
 
 
-def load_model_from_checkpoint(checkpoint_dir=OUTPUT_DIR):
+def load_model_from_checkpoint(checkpoint_dir):
 	"""Load a fine-tuned model from checkpoint."""
 	tokenizer = DistilBertTokenizer.from_pretrained(checkpoint_dir)
 	model = DistilBertForSequenceClassification.from_pretrained(checkpoint_dir)
@@ -303,15 +444,25 @@ def load_model_from_checkpoint(checkpoint_dir=OUTPUT_DIR):
 
 def classify_press_releases(
 	model_version,
-	model_dir=OUTPUT_DIR,
+	model_dir,
 	batch_size=16,
 	overwrite=False,
+	require_relevant_from=None,
 ):
 	"""
 	Classify scraped press releases and write predictions to Mongo.
 
 	Resume semantics: articles that already have a prediction for `model_version`
 	are skipped unless `overwrite=True`.
+
+	`require_relevant_from` restricts the candidate set to articles a previous
+	model_version already called positive — the staged pass that lets the AI
+	classifier run over launch-positives only instead of the whole corpus.
+
+	Both of those are `$lookup` joins rather than id lists built client-side: the
+	corpus runs to millions of articles and their `_id`s are URL slugs, so a
+	`$nin`/`$in` of everything already done outgrows Mongo's 16MB query limit
+	well before a full pass completes.
 	"""
 	tokenizer, model = load_model_from_checkpoint(model_dir)
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -321,21 +472,49 @@ def classify_press_releases(
 	articles_coll = db["articles"]
 	predictions_coll = db["predictions"]
 
-	done_ids = set()
+	# Both joins ride the unique (article_id, model_version) index on predictions,
+	# and $limit: 1 keeps the joined array to one document per article.
+	pipeline = [{"$match": {"status": "scraped"}}]
+
+	if require_relevant_from:
+		print(f"Gating on articles called positive by {require_relevant_from}.")
+		pipeline += [
+			{"$lookup": {
+				"from": "predictions",
+				"localField": "_id",
+				"foreignField": "article_id",
+				"pipeline": [
+					{"$match": {
+						"model_version": require_relevant_from,
+						"is_relevant_predicted": 1,
+					}},
+					{"$limit": 1},
+				],
+				"as": "gate",
+			}},
+			{"$match": {"gate": {"$ne": []}}},
+		]
+
 	if not overwrite:
-		done_ids = {
-			p["article_id"]
-			for p in predictions_coll.find(
-				{"model_version": model_version}, {"article_id": 1}
-			)
-		}
-		print(f"Found {len(done_ids)} articles already classified for {model_version}.")
+		pipeline += [
+			{"$lookup": {
+				"from": "predictions",
+				"localField": "_id",
+				"foreignField": "article_id",
+				"pipeline": [
+					{"$match": {"model_version": model_version}},
+					{"$limit": 1},
+				],
+				"as": "done",
+			}},
+			{"$match": {"done": {"$eq": []}}},
+		]
 
-	query = {"status": "scraped"}
-	if done_ids:
-		query["_id"] = {"$nin": list(done_ids)}
+	pipeline.append({"$project": {"_id": 1, "header": 1, "body": 1}})
 
-	cursor = articles_coll.find(query, {"_id": 1, "header": 1, "body": 1})
+	# Safe against its own writes: an article is only marked done after it has
+	# already streamed out of the cursor, so the join can never skip one.
+	cursor = articles_coll.aggregate(pipeline)
 	batch = []
 	total = 0
 
@@ -380,13 +559,14 @@ if __name__ == "__main__":
 	print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 	
 	parser = argparse.ArgumentParser(
-		description="Fine-tune a classifier for AI-related press releases"
+		description="Fine-tune a press-release classifier (product launch, or AI product)"
 	)
 	parser.add_argument(
-		"--output-dir",
+		"--task",
 		type=str,
-		help="Directory to save the fine-tuned model",
-		default=OUTPUT_DIR
+		choices=sorted(TASKS),
+		help="Which question to train/serve; picks the label collection and field",
+		default="launch"
 	)
 	parser.add_argument(
 		"--classify",
@@ -397,8 +577,17 @@ if __name__ == "__main__":
 	parser.add_argument(
 		"--model-version",
 		type=str,
-		help="Identifier stored alongside predictions (classify mode)",
-		default=DEFAULT_MODEL_VERSION
+		help="Pin a run to serve instead of the newest one under <MODEL_DIR>/<task> "
+			"(classify mode); also settable as MODEL_VERSION",
+		default=None
+	)
+	parser.add_argument(
+		"--require-relevant-from",
+		type=str,
+		help="Only classify articles already called positive by another model: a "
+			"task name ('launch') tracks that task's newest run, an explicit "
+			"version pins one. Used to run the AI classifier over launch-positives",
+		default=None
 	)
 	parser.add_argument(
 		"--loop",
@@ -422,7 +611,7 @@ if __name__ == "__main__":
 		"--epochs",
 		type=int,
 		help="Number of training epochs",
-		default=3
+		default=10
 	)
 	parser.add_argument(
 		"--model-name",
@@ -438,27 +627,54 @@ if __name__ == "__main__":
 	)
 
 	args = parser.parse_args()
-
-	OUTPUT_DIR = args.output_dir
+	print(f"Task: {args.task}; model root: {os.path.join(MODEL_ROOT, args.task)}")
 	ensure_indexes()
 
 	if args.classify:
 		print("Classification mode")
+		# Pinning is opt-in. Unpinned, the newest run is re-resolved every pass, so
+		# a retrain is picked up without restarting the service.
+		pinned = args.model_version or os.environ.get("MODEL_VERSION")
+
 		while True:
-			if not os.path.isfile(os.path.join(args.output_dir, "config.json")):
-				msg = f"No checkpoint at {args.output_dir}."
+			if pinned:
+				version, run_dir = pinned, os.path.join(MODEL_ROOT, args.task, pinned)
+				if not os.path.isdir(run_dir):
+					run_dir = os.path.join(MODEL_ROOT, args.task)  # pre-versioning layout
+			else:
+				version, run_dir = resolve_version(args.task)
+
+			# A task name here means "whatever that task's newest run is"; without a
+			# resolved gate the pass must not run at all, or it would classify the
+			# whole corpus instead of the gated slice.
+			gate = args.require_relevant_from
+			if gate in TASKS:
+				gate, _ = resolve_version(gate)
+
+			if version is None or not all(
+				os.path.isfile(os.path.join(run_dir, f)) for f in RUN_FILES
+			):
+				blocked = f"No trained run for task={args.task} under {os.path.join(MODEL_ROOT, args.task)}."
+			elif args.require_relevant_from and gate is None:
+				blocked = f"No trained run yet for gate '{args.require_relevant_from}'."
+			else:
+				blocked = None
+
+			if blocked:
 				if not args.loop:
-					print(msg + " Exiting.")
+					print(blocked + " Exiting.")
 					break
-				print(msg + f" Sleeping {args.idle_sleep}s.")
+				print(blocked + f" Sleeping {args.idle_sleep}s.")
 				time.sleep(args.idle_sleep)
 				continue
 
+			print(f"Serving {version} from {run_dir}")
 			classify_press_releases(
-				model_version=args.model_version,
-				model_dir=args.output_dir,
+				model_version=version,
+				model_dir=run_dir,
 				batch_size=args.batch_size,
 				overwrite=args.overwrite,
+				require_relevant_from=gate,
 			)
 
 			if not args.loop:
@@ -469,51 +685,32 @@ if __name__ == "__main__":
 		print("Training mode")
 		initialize_models(model_name=args.model_name)
 
-		labeled_data = load_labeled_data()
+		labeled_data = load_labeled_data(args.task)
+		if labeled_data.empty:
+			print(f"No labels found for task={args.task} in the "
+				f"'{TASKS[args.task]['labels']}' collection. Label some articles first "
+				"(docker compose --profile labeling up -d labeler).")
+			sys.exit(0)
 
-		train_df, eval_df = train_test_split(
+		# The run is named for the moment it started; that name is what inference
+		# resolves as "newest" and what its predictions are keyed by.
+		version = "{}-{}".format(
+			TASKS[args.task]["version_prefix"],
+			datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S"),
+		)
+		run_dir = os.path.join(MODEL_ROOT, args.task, version)
+		print(f"Run {version} -> {run_dir}")
+
+		record = train_run(
 			labeled_data,
-			test_size=0.2,
-			stratify=labeled_data['is_relevant'],
-			random_state=42
-		)
-
-		print(f"Training on {len(train_df)} examples, validating on {len(eval_df)} examples")
-		print(f"Class distribution in training set: {train_df['is_relevant'].value_counts().to_dict()}")
-
-		train_dataset = create_dataset(train_df)
-		eval_dataset = create_dataset(eval_df)
-
-		trainer = train_model(
-			train_dataset=train_dataset,
-			eval_dataset=eval_dataset,
-			output_dir=OUTPUT_DIR,
+			task=args.task,
+			version=version,
+			output_dir=run_dir,
 			batch_size=args.batch_size,
-			epochs=args.epochs
+			epochs=args.epochs,
 		)
-
-		eval_results = trainer.evaluate()
 		print("Evaluation results:")
-		print(eval_results)
-
-		pred_output = trainer.predict(eval_dataset)
-		logits = pred_output.predictions
-		probabilities = torch.nn.functional.softmax(torch.tensor(logits), dim=1).numpy()
-		predictions = np.argmax(logits, axis=1)
-		true_labels = pred_output.label_ids
-
-		eval_results_df = pd.DataFrame({
-			'_id': eval_df['_id'].tolist(),
-			'text': eval_df['text'].tolist(),
-			'true_label': true_labels,
-			'predicted_label': predictions,
-			'probability_relevant': probabilities[:, 1]
-		})
-		eval_results_df['correct'] = eval_results_df['true_label'] == eval_results_df['predicted_label']
-
-		eval_results_path = os.path.join(OUTPUT_DIR, "eval_predictions.csv")
-		eval_results_df.to_csv(eval_results_path, index=False)
-		print(f"Saved evaluation results to {eval_results_path}")
+		print(json.dumps(record["metrics"], indent=2))
 
 	print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 	print("Done")

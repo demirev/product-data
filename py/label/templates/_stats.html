@@ -1,0 +1,1 @@
+labeled: {{ stats.labeled }} ({% for name, count in stats.breakdown %}{{ count }} {{ name }}{% if not loop.last %} / {% endif %}{% endfor %}) &middot; skipped: {{ stats.skipped }}

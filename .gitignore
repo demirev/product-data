@@ -135,6 +135,16 @@ logs/
 data/
 checkpoints/
 
+# ...but keep the review-CSV drop folders (and their READMEs) tracked; ignore the CSVs
+!data/
+data/*
+!data/labels-for-review/
+data/labels-for-review/*
+!data/labels-for-review/README.md
+!data/ai-labels-for-review/
+data/ai-labels-for-review/*
+!data/ai-labels-for-review/README.md
+
 # Others
 .DS_Store
 Thumbs.db

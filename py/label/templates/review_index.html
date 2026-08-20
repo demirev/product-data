@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PRN labeler &mdash; {{ task.title }} review</title>
+{% include "_head.html" %}
+</head>
+<body>
+<header>
+	<h1>PRN labeler &mdash; {{ task.title }} review &mdash; {{ labeler }}</h1>
+	<div class="stats">
+		<a class="nav" href="/{{ task.slug }}">&larr; sampling mode</a>
+		{% for slug, other in tasks.items() %}{% if slug != task.slug %}
+		&middot; <a class="nav" href="/review/{{ slug }}">{{ other.title }} review</a>
+		{% endif %}{% endfor %}
+	</div>
+</header>
+
+{% if files %}
+<p class="stats">LLM-suggested labels to verify. Source: <code>{{ task.review_dir }}</code></p>
+<ul class="files">
+	{% for f in files %}
+	<li>
+		<a href="/review/{{ task.slug }}/{{ f.name }}">{{ f.name }}</a>
+		<span class="prog">{{ f.reviewed }} / {{ f.total }} reviewed</span>
+	</li>
+	{% endfor %}
+</ul>
+{% else %}
+<div class="empty">No CSV files found in <code>{{ task.review_dir }}</code>.</div>
+{% endif %}
+</body>
+</html>

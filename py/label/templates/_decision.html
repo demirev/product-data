@@ -1,0 +1,42 @@
+{# Decision + metadata controls, shared by the sampling and review cards.
+   In sampling mode the prefill lookups (article.provisional, article[name]) are
+   simply undefined, so the same markup renders an empty form. #}
+<div class="row">
+	<strong>Decision:</strong>
+	{% for value, name in task.decisions %}
+	<label><input type="radio" name="decision" value="{{ value }}"
+		{% if loop.first %}required{% endif %}
+		{% if article.provisional == value %}checked{% endif %} /> {{ name }}</label>
+	{% endfor %}
+</div>
+
+<div class="metadata">
+	<div class="hint">Optional (positives only):</div>
+	<div class="row">
+		{% for name, options in task.selects %}
+		<label>{{ name }}:
+			<select name="{{ name }}">
+				<option value="">&mdash;</option>
+				{% for option in options %}<option value="{{ option }}" {% if article[name] == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+			</select>
+		</label>
+		{% endfor %}
+	</div>
+	<textarea name="notes" placeholder="notes (optional)">{{ article.notes }}</textarea>
+</div>
+
+{% if article.cross_missing %}
+<div class="cross">
+	<label>Also &mdash; is this a <strong>{{ article.cross_task.title }}</strong>?
+		<select name="cross_decision">
+			<option value="">&mdash; leave unlabeled</option>
+			{% for value, name in article.cross_task.decisions %}
+			<option value="{{ value }}" {% if article.cross_provisional == value %}selected{% endif %}>{{ name }}</option>
+			{% endfor %}
+		</select>
+	</label>
+	<span class="hint">Optional. You're reading the article anyway, and it has no
+	{{ article.cross_task.title }} label yet &mdash; recorded separately so this
+	stream can be filtered out of base-rate estimates.</span>
+</div>
+{% endif %}

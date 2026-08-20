@@ -1,0 +1,126 @@
+# labels-for-review
+
+Drop CSVs of LLM-suggested labels here. The labeler app (review mode, `/review`)
+lists every `*.csv` in this folder and walks you through verifying each row.
+The CSVs themselves are git-ignored; only this README is tracked.
+
+This file is self-contained: point an LLM at it (e.g. "read
+`data/labels-for-review/README.md` and label these articles") and it has
+everything needed to produce a review CSV. No other context required.
+
+---
+
+## Getting the articles to label (data access)
+
+The articles live in a local MongoDB. The `label` app, the scrapers, and Mongo
+all run under Docker Compose; only Mongo's port is published to the host
+(`27017`), so connect to it directly from the host rather than through `docker`
+(which needs `sudo` here).
+
+- **DB / collections:** database `prn` (~374k docs). `articles` holds the press
+  releases; `labels` + `label_skips` hold already-decided ids (skip these);
+  `predictions` is for model output.
+- **Article shape:** `_id` (the join key — a slug, never invent one), `header`,
+  `body`, `url`, `published_date`, `category`, `status` (label only
+  `status:"scraped"`).
+- **Client:** no host-level `mongosh`; use the project venv's pymongo
+  (`venv/bin/python`, `MongoClient("mongodb://localhost:27017")["prn"]`).
+
+Sample the same way the app does (`py/label/app.py:sample_article`): exclude ids
+already in `labels`/`label_skips`, then draw ~70% from headers matching the
+launch-keyword regex (`launch|unveil|debut|introduc|roll(s|ing)? out|now
+available|general availability`, case-insensitive) and ~30% random for an
+unbiased slice. Use Mongo's `$sample` for the random draw. Dump
+`_id`/`header`/`body` to a file, label per the brief below, and write the result
+back here as `<batch-name>.csv`. Because every `_id` is in Mongo, you can omit
+`header`/`body` from the CSV — the app rejoins them by `id`.
+
+---
+
+## Labeling brief (for the LLM)
+
+**Task.** You are labeling PRNewswire press releases to bootstrap a binary
+classifier that detects **new product/service launches**. For each article,
+output a provisional label that a human will then quickly verify. Be decisive
+but honest: your `llm_confidence` and `llm_rationale` are what let the human skim
+rather than re-read, and your agreement rate against the human is measured.
+
+**Decision (the `decision` column) — pick exactly one:**
+
+- `relevant` — the release's *primary purpose* is to announce a specific product
+  or service that is **newly available** from the issuing company. New product
+  launches; major releases with their own name; public beta / early access (if
+  signups open); new services with defined scope; co-developed products.
+- `irrelevant` — anything else: funding / M&A / earnings / hires; awards &
+  analyst rankings; partnerships & integrations; feature updates & patches;
+  regional expansion of an existing product; rebrands; clinical/research
+  milestones without a product; events; corporate updates; discontinuations.
+- `product_info` — **not a launch** (so it's still a negative), *but* the release
+  carries substantive detail about an already-launched product: capabilities,
+  specs, pricing, customer wins. These are kept as hard negatives to curb false
+  positives, so flag them rather than lumping them into `irrelevant`.
+
+**Tiebreaker:** after reading it, can you name a specific thing a customer could
+now buy, sign up for, or download that they couldn't before? If yes →
+`relevant`. "Industry's first" hype does **not** count — apply the tiebreaker. A
+named & priced thing → new product. An update to a named *existing* product →
+`irrelevant`. Free / open-source releases count if they're a discrete thing.
+When genuinely torn between `relevant` and a negative, prefer the negative and
+lower your confidence (the human will catch under-calls during review).
+
+**Optional metadata** — fill only when `decision` is `relevant` or
+`product_info`; leave blank otherwise:
+
+- `audience` — one of: `b2b`, `b2c`, `b2g`, `mixed`
+- `domain` — one of: `ai_ml`, `software`, `hardware_iot`, `biotech_pharma`,
+  `healthcare`, `fintech`, `energy_cleantech`, `automotive_mobility`,
+  `industrial`, `consumer_goods`, `media_entertainment`, `other`
+  (security products live under `software`)
+- `notes` — short free text, e.g. the name of the launched product
+
+**Output rules.** Emit one valid CSV with a header row, written to this folder as
+`<batch-name>.csv`. Use the exact column names below; one row per article; never
+invent an `id`. Quote any field containing commas, quotes, or newlines
+(rationales usually need quoting). Order rows by `llm_confidence` ascending if you
+can, so the human reviews your least-certain calls first.
+
+Example:
+
+```csv
+id,decision,llm_confidence,llm_rationale,audience,domain,notes
+prn_0a1b,relevant,0.93,"Names a new API customers can sign up for today.",b2b,software,Foo API
+prn_0a2c,irrelevant,0.88,"Series A funding announcement; no purchasable product.",,,
+prn_0a3d,product_info,0.71,"Not a launch, but gives specs/pricing for an existing device.",b2c,hardware_iot,
+```
+
+---
+
+## CSV columns
+
+| column          | required | meaning                                                                 |
+|-----------------|----------|-------------------------------------------------------------------------|
+| `id`            | yes      | article `_id` — join key into the `articles` / `labels` collections     |
+| `decision`      | no\*     | provisional label: `relevant` \| `irrelevant` \| `product_info`         |
+| `llm_confidence`| no       | number in `0`–`1`; shown to the reviewer and used for ordering           |
+| `llm_rationale` | no       | the model's one-sentence reasoning — shown prominently to speed review   |
+| `audience`      | no       | suggested audience (`b2b`/`b2c`/`b2g`/`mixed`), prefilled               |
+| `domain`        | no       | suggested domain, prefilled                                             |
+| `notes`         | no       | free-text notes, prefilled                                             |
+| `header`        | no       | article title; if absent, joined from Mongo by `id`                     |
+| `body`          | no       | article text; if absent, joined from Mongo by `id`                      |
+
+\* Only `id` is strictly required for the app to load a row, but the LLM should
+always emit `decision` (plus `llm_confidence`/`llm_rationale`) — that's the whole
+point. An invalid/blank `decision` just leaves the form unselected so the human
+labels from scratch. Include `header`/`body` only if the articles aren't already
+in Mongo.
+
+## How review works
+
+- Items already in `labels` or `label_skips` are skipped, so progress resumes
+  automatically and re-loading a file never double-serves a row.
+- The decision form arrives pre-filled from the CSV. Submitting unchanged =
+  confirm; changing a radio = overwrite.
+- Each verified row is written to the `labels` collection with
+  `source="llm_reviewed"`, `llm_label`, `human_agreed`, and `review_file`, so
+  you can later measure the LLM's accuracy and mine the disagreements.

@@ -2,49 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>PRN labeler</title>
-<script src="https://unpkg.com/htmx.org@1.9.12"></script>
-<style>
-	body { font-family: -apple-system, system-ui, sans-serif; max-width: 920px; margin: 1.5rem auto; padding: 0 1rem; color: #222; }
-	header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; margin-bottom: 1rem; }
-	header h1 { font-size: 1.1rem; margin: 0; }
-	.stats { font-size: 0.85rem; color: #666; }
-	details.rubric { background: #fafafa; border: 1px solid #e3e3e3; border-radius: 6px; padding: 0.5rem 0.9rem; margin-bottom: 1rem; }
-	details.rubric summary { cursor: pointer; font-weight: 600; }
-	details.rubric ul { margin: 0.4rem 0; padding-left: 1.2rem; }
-	details.rubric .tiebreaker { background: #fff3cd; padding: 0.4rem 0.6rem; border-radius: 4px; margin: 0.4rem 0; }
-	.article { border: 1px solid #ddd; border-radius: 6px; padding: 1rem 1.2rem; }
-	.article h2 { margin-top: 0; font-size: 1.05rem; }
-	.meta { font-size: 0.8rem; color: #888; margin-bottom: 0.8rem; }
-	.body { max-height: 380px; overflow-y: auto; white-space: pre-wrap; font-size: 0.92rem; line-height: 1.45; background: #fcfcfc; padding: 0.7rem; border: 1px solid #eee; border-radius: 4px; }
-	form { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
-	.row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
-	.row label { font-size: 0.9rem; }
-	.btn { padding: 0.5rem 1rem; border: 1px solid #aaa; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.95rem; }
-	.btn.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
-	.btn.skip { background: #f3f3f3; }
-	textarea { width: 100%; min-height: 50px; padding: 0.4rem; font-family: inherit; }
-	select { padding: 0.3rem; }
-	.metadata { padding: 0.6rem; background: #f8f9ff; border: 1px dashed #c3cee0; border-radius: 4px; }
-	.empty { text-align: center; padding: 3rem 1rem; color: #888; }
-</style>
+<title>PRN labeler &mdash; {{ task.title }}</title>
+{% include "_head.html" %}
 </head>
 <body>
 <header>
-	<h1>PRN labeler &mdash; {{ labeler }}</h1>
+	<h1>PRN labeler &mdash; {{ task.title }} &mdash; {{ labeler }}</h1>
 	<div class="stats" id="stats">
-		labeled: {{ stats.labeled }} ({{ stats.relevant }} relevant / {{ stats.irrelevant }} irrelevant) &middot; skipped: {{ stats.skipped }}
+		{% include "_stats.html" %}
+		&middot; {% include "_nav.html" %}
 	</div>
 </header>
 
-<details class="rubric" open>
-<summary>Relevance rubric</summary>
-<p><strong>Mark relevant</strong> if the press release's primary purpose is to announce a specific product or service that is newly available from the issuing company.</p>
-<div class="tiebreaker"><strong>Tiebreaker:</strong> after reading this, can I name a specific thing a customer could now buy, sign up for, or download that they couldn't before? If yes &rarr; relevant.</div>
-<p><strong>Relevant:</strong> new product launches; major releases with their own name; public beta / early access (if signups open); new services with defined scope; co-developed products.</p>
-<p><strong>Irrelevant:</strong> funding / M&amp;A / earnings / hires; awards &amp; analyst rankings; partnerships &amp; integrations; feature updates &amp; patches; regional expansion of existing products; rebrands; clinical/research milestones without a product; events; corporate updates; discontinuations.</p>
-<p><strong>Hard calls:</strong> "industry's first" hype doesn't count &mdash; apply the tiebreaker. Named &amp; priced thing &rarr; new product. Update to a named existing product &rarr; irrelevant. Free / open-source releases count if discrete. Security products live under domain <code>software</code>. When genuinely unsure &rarr; <strong>skip</strong>.</p>
-</details>
+{% include task.rubric %}
 
 <div id="card-slot">
 	{% include "card.html" %}

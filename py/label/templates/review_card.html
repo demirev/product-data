@@ -1,0 +1,53 @@
+<div id="card">
+{% if article %}
+<div class="spinner-overlay"><div class="spinner"></div></div>
+<div class="article">
+	<h2>{{ article.header or "(no header)" }}</h2>
+	<div class="meta">
+		id: <code>{{ article._id }}</code>
+		{% if article.published_date %} &middot; {{ article.published_date }}{% endif %}
+		{% if article.url %} &middot; <a href="{{ article.url }}" target="_blank" rel="noopener">source</a>{% endif %}
+	</div>
+
+	{% if article.llm_label or article.llm_rationale %}
+	<div class="llm">
+		LLM suggestion: <span class="lbl">{{ article.llm_label.replace("_", " ") or "—" }}</span>
+		{% if article.llm_confidence %}<span class="conf">(confidence {{ article.llm_confidence }})</span>{% endif %}
+		{% if article.llm_rationale %}<p>{{ article.llm_rationale }}</p>{% endif %}
+	</div>
+	{% endif %}
+
+	<div class="body">{{ article.body or "(text unavailable)" }}</div>
+
+	<form hx-post="/review/{{ task.slug }}/label" hx-target="#card" hx-swap="outerHTML"
+		hx-indicator="#card" hx-disabled-elt="find button">
+		<input type="hidden" name="article_id" value="{{ article._id }}" />
+		<input type="hidden" name="file" value="{{ file }}" />
+		<input type="hidden" name="llm_label" value="{{ article.llm_label }}" />
+
+		{% include "_decision.html" %}
+
+		<div class="row">
+			<button class="btn primary" type="submit">Confirm / Submit</button>
+			{% for name, reason in task.extra_actions %}
+			<button class="btn" type="button"
+				hx-post="/review/{{ task.slug }}/skip" hx-target="#card" hx-swap="outerHTML"
+				hx-indicator="#card" hx-disabled-elt="this"
+				hx-vals='{"reason": "{{ reason }}"}'
+				hx-include="[name='article_id'],[name='file'],[name='llm_label'],[name='cross_decision']">{{ name }}</button>
+			{% endfor %}
+			<button class="btn skip" type="button"
+				hx-post="/review/{{ task.slug }}/skip" hx-target="#card" hx-swap="outerHTML"
+				hx-indicator="#card" hx-disabled-elt="this"
+				hx-include="[name='article_id'],[name='file'],[name='llm_label'],[name='cross_decision']">Skip</button>
+		</div>
+	</form>
+</div>
+
+<div hx-swap-oob="innerHTML:#review-stats">
+	{% include "_review_stats.html" %}
+</div>
+{% else %}
+<div class="empty">Nothing left to review in this file. &middot; <a href="/review/{{ task.slug }}">back to files</a></div>
+{% endif %}
+</div>

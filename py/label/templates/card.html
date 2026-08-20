@@ -1,52 +1,43 @@
 <div id="card">
 {% if article %}
+<div class="spinner-overlay"><div class="spinner"></div></div>
 <div class="article">
 	<h2>{{ article.header or "(no header)" }}</h2>
 	<div class="meta">
 		id: <code>{{ article._id }}</code>
 		{% if article.published_date %} &middot; {{ article.published_date }}{% endif %}
 		{% if article.url %} &middot; <a href="{{ article.url }}" target="_blank" rel="noopener">source</a>{% endif %}
+		{% if article.sample_method %} &middot; drawn: {{ article.sample_method }}{% endif %}
 	</div>
 	<div class="body">{{ article.body }}</div>
 
-	<form hx-post="/label" hx-target="#card" hx-swap="outerHTML">
+	<form hx-post="/label/{{ task.slug }}" hx-target="#card" hx-swap="outerHTML"
+		hx-indicator="#card" hx-disabled-elt="find button">
 		<input type="hidden" name="article_id" value="{{ article._id }}" />
-		<div class="row">
-			<strong>Decision:</strong>
-			<label><input type="radio" name="is_relevant" value="1" required /> relevant</label>
-			<label><input type="radio" name="is_relevant" value="0" /> irrelevant</label>
-		</div>
+		<input type="hidden" name="sample_method" value="{{ article.sample_method }}" />
 
-		<div class="metadata">
-			<div style="font-size: 0.85rem; color: #555; margin-bottom: 0.4rem;">Optional (relevant only):</div>
-			<div class="row">
-				<label>audience:
-					<select name="audience">
-						<option value="">&mdash;</option>
-						{% for a in audiences %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
-					</select>
-				</label>
-				<label>domain:
-					<select name="domain">
-						<option value="">&mdash;</option>
-						{% for d in domains %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
-					</select>
-				</label>
-			</div>
-			<textarea name="notes" placeholder="notes (optional)"></textarea>
-		</div>
+		{% include "_decision.html" %}
 
 		<div class="row">
 			<button class="btn primary" type="submit">Submit label</button>
+			{% for name, reason in task.extra_actions %}
+			<button class="btn" type="button"
+				hx-post="/skip/{{ task.slug }}" hx-target="#card" hx-swap="outerHTML"
+				hx-indicator="#card" hx-disabled-elt="this"
+				hx-vals='{"reason": "{{ reason }}"}'
+				hx-include="[name='article_id'],[name='sample_method'],[name='cross_decision']">{{ name }}</button>
+			{% endfor %}
 			<button class="btn skip" type="button"
-				hx-post="/skip" hx-target="#card" hx-swap="outerHTML"
-				hx-include="[name='article_id']">Skip</button>
+				hx-post="/skip/{{ task.slug }}" hx-target="#card" hx-swap="outerHTML"
+				hx-indicator="#card" hx-disabled-elt="this"
+				hx-include="[name='article_id'],[name='sample_method'],[name='cross_decision']">Skip</button>
 		</div>
 	</form>
 </div>
 
 <div hx-swap-oob="innerHTML:#stats">
-	labeled: {{ stats.labeled }} ({{ stats.relevant }} relevant / {{ stats.irrelevant }} irrelevant) &middot; skipped: {{ stats.skipped }}
+	{% include "_stats.html" %}
+	&middot; {% include "_nav.html" %}
 </div>
 {% else %}
 <div class="empty">No unlabeled scraped articles left.</div>

@@ -1,0 +1,1 @@
+{% for slug, other in tasks.items() %}{% if slug != task.slug %}<a class="nav" href="/{{ slug }}">{{ other.title }} labeler</a> &middot; {% endif %}{% endfor %}<a class="nav" href="/review/{{ task.slug }}">review mode &rarr;</a>
