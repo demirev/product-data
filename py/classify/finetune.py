@@ -36,6 +36,7 @@ MODEL_CONFIG = {
 	"model_name": "distilbert-base-uncased",  
 	"tokenizer": None,  # Will be initialized later
 	"model": None,      # Will be initialized later
+	"classes": None,    # the task's label space, set by initialize_models
 	"max_length": 512
 }
 
@@ -55,16 +56,24 @@ IDLE_SLEEP_SECONDS = 24 * 60 * 60
 # one string is the directory it lives in under <MODEL_DIR>/<task>, the
 # `model_version` its predictions carry, and its `_id` in `model_runs` — so any
 # prediction traces back to the weights and the eval stats that produced it.
+#
+# `classes` is the label space, indexed by the integer stored in `field`, so its
+# order is schema rather than presentation. Index 1 is the positive class in
+# every task: that invariant is what lets one code path report a single AUC and
+# false-positive rate, and gate on a single `predicted_class: 1`, for a binary
+# head and a four-way one alike.
 TASKS = {
 	"launch": {
 		"labels": "labels",
 		"field": "is_relevant",
+		"classes": ["irrelevant", "relevant"],
 		"version_prefix": "distilbert-finetuned",
 		"legacy_version": "distilbert-finetuned-v1",
 	},
 	"ai": {
 		"labels": "ai_labels",
-		"field": "is_ai_product",
+		"field": "ai_class",
+		"classes": ["not_ai", "ai", "ai_feature", "ai_tooling"],
 		"version_prefix": "distilbert-ai",
 		"legacy_version": "distilbert-ai-v1",
 	},
@@ -137,18 +146,20 @@ def construct_press_release_list(keyphrases=None):
 
 
 # Initialize models
-def initialize_models(model_name=None, num_labels=2):
-	"""Initialize the tokenizer and model."""
+def initialize_models(classes, model_name=None):
+	"""Initialize the tokenizer and a head sized for the task's `classes`."""
 	if model_name:
 		MODEL_CONFIG["model_name"] = model_name
 	
 	# Initialize tokenizer
 	MODEL_CONFIG["tokenizer"] = DistilBertTokenizer.from_pretrained(MODEL_CONFIG["model_name"])
+	MODEL_CONFIG["classes"] = list(classes)
 	
-	# Initialize model for sequence classification (binary in this case)
+	# Initialize model for sequence classification — two-way for launch, four-way
+	# for AI; the head is the only place the two tasks differ in shape.
 	MODEL_CONFIG["model"] = DistilBertForSequenceClassification.from_pretrained(
 		MODEL_CONFIG["model_name"], 
-		num_labels=num_labels
+		num_labels=len(MODEL_CONFIG["classes"])
 	)
 	
 	return MODEL_CONFIG["tokenizer"], MODEL_CONFIG["model"]
@@ -183,10 +194,16 @@ def load_labeled_data(task="launch"):
 		)
 	}
 
-	rows = []
+	rows, unlabeled = [], 0
 	for label in labels:
 		article = articles.get(label["_id"])
 		if not article:
+			continue
+		# A label written before the task's label space changed has no value in
+		# the current field. Skipping beats crashing the run, but it is silent
+		# data loss, so it gets counted and reported.
+		if label.get(field) is None:
+			unlabeled += 1
 			continue
 		text = clean_text((article.get("header") or "") + " " + (article.get("body") or ""))
 		if not text.strip():
@@ -199,6 +216,8 @@ def load_labeled_data(task="launch"):
 
 	df = pd.DataFrame(rows)
 	print(f"Loaded {len(df)} labeled press releases for task={task}")
+	if unlabeled:
+		print(f"Skipped {unlabeled} label(s) carrying no '{field}' — relabel or migrate them.")
 	return df
 
 
@@ -255,8 +274,14 @@ def train_run(df, task, version, output_dir, batch_size=8, epochs=10):
 	The same stats are recorded in the `model_runs` collection under
 	`_id = version`, the string predictions carry as `model_version`.
 	"""
+	# Stratification refuses a class with a single member, which a four-way split
+	# hits easily while the rarer classes are still being labelled. Falling back
+	# to an unstratified split costs balance; failing the run costs the run.
+	stratify = df["label"] if df["label"].value_counts().min() >= 2 else None
+	if stratify is None:
+		print("A class has fewer than 2 examples; splitting without stratification.")
 	train_df, eval_df = train_test_split(
-		df, test_size=0.2, stratify=df["label"], random_state=42
+		df, test_size=0.2, stratify=stratify, random_state=42
 	)
 	print(f"Training on {len(train_df)} examples, validating on {len(eval_df)} examples")
 	print(f"Class distribution in training set: {train_df['label'].value_counts().to_dict()}")
@@ -313,12 +338,16 @@ def train_run(df, task, version, output_dir, batch_size=8, epochs=10):
 
 	logits = pred_output.predictions
 	probabilities = torch.nn.functional.softmax(torch.tensor(logits), dim=1).numpy()
+	classes = MODEL_CONFIG["classes"]
 	eval_results_df = pd.DataFrame({
 		"_id": eval_df["_id"].tolist(),
 		"text": eval_df["text"].tolist(),
-		"true_label": pred_output.label_ids,
-		"predicted_label": np.argmax(logits, axis=1),
-		"probability_relevant": probabilities[:, 1],
+		"true_label": [classes[i] for i in pred_output.label_ids],
+		"predicted_label": [classes[i] for i in np.argmax(logits, axis=1)],
+		# One column per class rather than a single positive-class probability:
+		# on a four-way head the informative part of an error is which other
+		# class the model reached for, and how close it was.
+		**{f"p_{name}": probabilities[:, i] for i, name in enumerate(classes)},
 	})
 	eval_results_df["correct"] = (
 		eval_results_df["true_label"] == eval_results_df["predicted_label"]
@@ -341,7 +370,10 @@ def train_run(df, task, version, output_dir, batch_size=8, epochs=10):
 		"max_length": MODEL_CONFIG["max_length"],
 		"n_train": len(train_df),
 		"n_eval": len(eval_df),
-		"label_counts": {str(k): int(v) for k, v in df["label"].value_counts().items()},
+		# The order here is what `class_probabilities` on every prediction this
+		# run writes is indexed by, so it belongs with the run, not in code.
+		"classes": classes,
+		"label_counts": {classes[int(k)]: int(v) for k, v in df["label"].value_counts().items()},
 		"metrics": metrics,
 	}, default=float))
 
@@ -359,27 +391,49 @@ def train_run(df, task, version, output_dir, batch_size=8, epochs=10):
 
 
 def compute_metrics(eval_pred):
-	"""Compute metrics for evaluation during training."""
+	"""Compute metrics for evaluation during training.
+
+	The headline numbers are one-vs-rest against class 1 — the positive class in
+	every task — so a two-way head and a four-way one report the same names, and
+	`metric_for_best_model` keeps selecting on the same quantity across both. The
+	four-way detail lives in the confusion matrix and the per-class report.
+	"""
 	logits, labels = eval_pred
+	classes = MODEL_CONFIG["classes"]
 	predictions = np.argmax(logits, axis=1)
 	
 	# For AUC-ROC we need probabilities of the positive class
 	probs = torch.nn.functional.softmax(torch.tensor(logits), dim=1).numpy()
-	roc_auc = roc_auc_score(labels, probs[:, 1])  # Using probability of positive class
+	positive, called_positive = np.asarray(labels) == 1, predictions == 1
+	roc_auc = roc_auc_score(positive, probs[:, 1])
 	
-	# Spelling out the labels keeps this 2x2 even on an epoch where the model
-	# predicts a single class, which it does while the fresh head settles.
-	tn, fp, fn, tp = confusion_matrix(labels, predictions, labels=[0, 1]).ravel()
+	tp = int((positive & called_positive).sum())
+	fp = int((~positive & called_positive).sum())
+	fn = int((positive & ~called_positive).sum())
+	tn = int((~positive & ~called_positive).sum())
 	
 	return {
 		'accuracy': accuracy_score(labels, predictions),
 		'roc_auc': roc_auc,
 		# Each rate is taken over its own true class, so neither moves when the
 		# split's balance does: missed launches over the launches, false alarms
-		# over the non-launches.
+		# over the non-launches. On the four-way head "negative" is every other
+		# class, so an AI product read as tooling counts here exactly as an AI
+		# product read as not_ai does.
 		'false_positive_rate': fp / (fp + tn),
 		'false_negative_rate': fn / (fn + tp),
-		'report': classification_report(labels, predictions, output_dict=True)
+		# Spelling out the labels keeps this square even on an epoch where the
+		# model predicts a single class, which it does while the fresh head
+		# settles — and on four classes it is the only place the off-diagonal
+		# confusions (tooling read as product, say) are visible at all.
+		'confusion_matrix': confusion_matrix(
+			labels, predictions, labels=range(len(classes))
+		).tolist(),
+		'report': classification_report(
+			labels, predictions,
+			labels=range(len(classes)), target_names=classes,
+			output_dict=True, zero_division=0,
+		),
 	}
 
 
@@ -486,7 +540,7 @@ def classify_press_releases(
 				"pipeline": [
 					{"$match": {
 						"model_version": require_relevant_from,
-						"is_relevant_predicted": 1,
+						"predicted_class": 1,
 					}},
 					{"$limit": 1},
 				],
@@ -522,14 +576,17 @@ def classify_press_releases(
 		texts = [clean_text((d.get("header") or "") + " " + (d.get("body") or "")) for d in batch]
 		results = predict(texts, model, tokenizer)
 		preds = results["predictions"]
-		probs = results["probabilities"][:, 1]
+		probs = results["probabilities"]
 		ops = [
 			UpdateOne(
 				{"article_id": d["_id"], "model_version": model_version},
 				{
 					"$set": {
-						"is_relevant_predicted": int(preds[j]),
-						"relevance_probability": float(probs[j]),
+						"predicted_class": int(preds[j]),
+						# The whole distribution, index-aligned with the run's
+						# `classes` in model_runs, so a threshold can be re-tuned
+						# without a second pass over the corpus.
+						"class_probabilities": [float(pr) for pr in probs[j]],
 						"predicted_at": datetime.now(timezone.utc),
 					}
 				},
@@ -683,7 +740,7 @@ if __name__ == "__main__":
 			time.sleep(args.idle_sleep)
 	else:
 		print("Training mode")
-		initialize_models(model_name=args.model_name)
+		initialize_models(TASKS[args.task]["classes"], model_name=args.model_name)
 
 		labeled_data = load_labeled_data(args.task)
 		if labeled_data.empty:

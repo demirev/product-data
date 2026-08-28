@@ -3,18 +3,26 @@
 PRNewswire press-release pipeline: scrape → label → train → classify. All services run via Docker Compose against a shared MongoDB.
 
 Two independent questions are asked about each release, each with its own labels
-and its own binary classifier:
+and its own classifier — `launch` binary, `ai` four-way:
 
-| task | question | labels | model versions |
-|---|---|---|---|
-| `launch` | is this a new product/service launch? | `labels` | `distilbert-finetuned-<timestamp>` |
-| `ai` | is generative AI core to the product's value proposition? | `ai_labels` | `distilbert-ai-<timestamp>` |
+| task | question | classes | labels | model versions |
+|---|---|---|---|---|
+| `launch` | is this a new product/service launch? | `irrelevant`, `relevant` | `labels` | `distilbert-finetuned-<timestamp>` |
+| `ai` | what kind of AI release is this? | `not_ai`, `ai`, `ai_feature`, `ai_tooling` | `ai_labels` | `distilbert-ai-<timestamp>` |
 
-They are deliberately *not* one multi-class model: the axes are orthogonal (a
-release can describe an AI product without being a launch), the label
-populations differ, and separate heads give independently tunable thresholds.
-At serve time they compose as `launch AND ai`, with the AI model running only
-over launch-positives.
+They are deliberately *not* a single model over both axes: the axes are
+orthogonal (a release can describe an AI product without being a launch), the
+label populations differ, and separate heads stay independently tunable. The
+`ai` head is itself four-way because `ai_feature` and `ai_tooling` are distinct
+outcomes rather than flavours of "no" — the counts worth having (how much
+generative AI reaches an end market, versus how much is sold back into the AI
+industry) need them apart, and collapsing them into a negative throws that away
+at labelling time, where it cannot be recovered.
+
+Index 1 is the positive class in both label spaces. That invariant is what lets
+one code path report a single AUC and false-positive rate for either head, and
+gate on a single `predicted_class: 1`. At serve time they compose as `launch AND
+ai_class == ai`, with the AI model running only over launch-positives.
 
 ## First-time setup
 
@@ -147,8 +155,8 @@ queue empties (`--rollup-when-idle`, set on the service in `docker-compose.yml`)
 The one-shot jobs exist for after an extractor change bumps a version:
 
 ```bash
-docker compose --profile enrich run --rm enrich                            # per-release facts
-docker compose --profile enrich run --rm enrich python py/company.py --rollup   # companies
+docker compose --profile company run --rm company-facts                          # per-release facts
+docker compose --profile company run --rm company-facts python py/company.py --rollup   # companies
 ```
 
 **Per-release facts** are stamped onto each article — they belong to the
@@ -302,18 +310,264 @@ Coverage of the derived fields, per sender: `hq` 98.6%, `domain` 66.1%,
 Translations are counted as separate releases. Veeva's 313 include the same
 Barcelona event as `BARCELONA/Spain`, `BARCELONE/Espagne`, `BARCELONA/Spanien`
 and `BARCELONA/España`, so per-company release counts are inflated for anyone
-who distributes multilingually. Regions are also stored as PRN prints them
-(`N.C.`, `Calif.`, `Espagne`) rather than normalised, and the modal domain can
-be a customer's rather than the sender's when a company names customers more
-often than itself — Veeva's is `ir.veeva.com` with a customer's `biomarin.com`
-close behind, and RTX's is `prattwhitney.com`.
-
-Subsidiaries inherit their parent's listing. Toyota Motor North America is
-called public off `NYSE:TM`, which belongs to the parent; separating the two
-needs the parent/child data in the next tier. And Frost & Sullivan lands in
+who distributes multilingually. The modal domain can also be a customer's
+rather than the sender's, when a company names customers more often than
+itself — Veeva's is `ir.veeva.com` with a customer's `biomarin.com` close
+behind, and RTX's is `prattwhitney.com`. And Frost & Sullivan lands in
 `stock_commentary` rather than `research_publisher`, because it discusses many
 companies' shares without using enough report vocabulary to trip that rule
 first.
+
+Two gaps that used to be listed here are closed by [external
+enrichment](#external-enrichment), which is the tier below. Regions were stored
+as PRN prints them (`N.C.`, `Calif.`, `Espagne`) and are now normalised into
+`region` against a state table and the registries' own codes. And subsidiaries
+inherited their parent's listing — Toyota Motor North America was called public
+off `NYSE:TM`, which is the parent's — which now resolves against SEC's ticker
+list and GLEIF. The heuristic fields themselves are unchanged: `hq` still holds
+the raw modal dateline, and `--rollup --no-enrichment` reproduces the old
+document exactly.
+
+## External enrichment
+
+Everything above is mined from the release bodies, and that has a ceiling: no
+founding date at all, `is_public` null for three senders in four, and `org_type`
+sitting on its low-confidence default for 92,082 of 98,860. `py/enrich.py` goes
+outside for the rest, resolving each rolled-up company against six public
+registries and storing what each returns, whole, in `company_enrichment` keyed by
+the same `uploader_link`.
+
+```bash
+export ENRICH_CONTACT="you@example.com"   # required: see below
+docker compose up -d enrich                                     # continuous, resumable
+docker compose run --rm enrich python py/enrich.py --refresh    # force a bulk re-download
+docker compose run --rm enrich python py/enrich.py --stats      # match rates
+```
+
+**`ENRICH_CONTACT` is not optional.** SEC refuses requests whose `User-Agent`
+names no contact address, so without it every SEC lookup fails and the other five
+sources go out unidentified. It is deliberately not defaulted to anything — the
+value is sent to all six services on every request, so it is yours to choose. The
+enricher warns loudly at startup when it is unset.
+
+| # | source | what it is for | route |
+|---|---|---|---|
+| I | **Wikidata** | the crosswalk hub — CIK, LEI, ISIN, parent, inception | `list=exturlusage` by domain, then `wbgetentities` |
+| II | **SEC** | tickers/exchange, cik-lookup, submissions, companyfacts, Form D | bulk for the first two, per-CIK for the rest |
+| III | **GLEIF** | legal entity, incorporation date, jurisdiction, parent, ISIN count | golden copy (3,409,981 records) |
+| IV | **RDAP** | the domain's registration record | IANA bootstrap, then the registry |
+| V | **IRS BMF** | non-profits: EIN, NTEE code, revenue, ruling date | `eo1`–`eo4` + `eo_xx` (1,959,731 rows) |
+| VI | **ROR** | research institutions | Zenodo dump (135,710 records) |
+
+Four are bulk and land in staging collections (`sec_tickers`, `sec_cik_lookup`,
+`gleif_lei`, `gleif_rr`, `gleif_isin`, `irs_bmf`, `ror`) so the resolver does
+indexed point lookups instead of holding 5.4M rows in RAM. The SEC's per-company
+artefacts are fetched per CIK rather than from the 1.41 GB `companyfacts.zip` and
+1.56 GB `submissions.zip`: only ~10k senders are registrants, so ~10k requests
+beats 3 GB of download whose 99% would be discarded.
+
+### Resumption is by version, not by time
+
+A company is due for a source **only when that block is missing or its
+`resolver_version` is behind** — the same contract `facts_version` already gives
+the per-release backfill. Nothing re-fetches on a schedule, so a fresh GLEIF
+golden copy refreshes *staging* without re-resolving the 98,860 companies that
+have already matched. Misses are recorded rather than retried; `--retry-misses`
+asks again when you want a second look, and a transient error is not a miss, so
+it is re-queued by the ordinary check on the next pass.
+
+Each source is wrapped independently — a GLEIF timeout does not cost the RDAP
+record that came back fine. Companies are resolved biggest sender first, which is
+what makes the pass interruptible: a full sweep runs about **3.6 s/company** (the
+RDAP and Wikidata rate limits dominate), so ~4 days end to end, but the head of
+the corpus lands in the first few hours.
+
+### Matching
+
+Wikidata runs first because one match hands over P5531 (CIK), P1278 (LEI) and
+P946 (ISIN), turning three downstream fuzzy matches into exact-key lookups.
+
+| source | 1st | 2nd | last resort |
+|---|---|---|---|
+| Wikidata | `exturlusage(domain)`, verified against P856 | — | — |
+| SEC | Wikidata P5531 | ticker **and** filer name | `name_norm` in cik-lookup |
+| GLEIF | Wikidata P1278 | `name_norm` + country | `name_norm` worldwide |
+| IRS | EIN from SEC submissions | `name_norm` + state | `name_norm` nationwide |
+| ROR | Wikidata QID | domain | `name_norm` (aliases included) |
+| RDAP | domain | — | — |
+
+Two rules do most of the work. **A name block has to come back with exactly one
+row**, so widening a block can lose a match but never invent one — that is why
+the last-resort tiers are safe, and `matched_by` records which tier answered so
+they can be dropped wholesale.
+
+**And the ticker path is corroborated by name.** `companies.ticker` is the
+rollup's concentration guess, and for a subsidiary that guess is the parent's
+symbol. Following it blindly would look up Toyota Motor Corp's CIK for Toyota
+Motor North America and launder a known-bad inference into an authoritative
+identifier. Instead the mismatch is *recorded* — and it turns out to be exactly
+the evidence that closes the gap below.
+
+`exturlusage` needs the verification pass because it indexes every item that
+*cites* a domain, not the one that owns it: `sandiegozoo.org` returns six items,
+of which four merely reference the site.
+
+### What it finds
+
+Measured over the first 506 companies resolved — which, because the pass runs
+biggest sender first, is the head of the corpus and not a random sample. Expect
+the tail to be far thinner: a sender with one release is usually a company no
+registry has ever heard of.
+
+| source | matched | how |
+|---|---|---|
+| RDAP | 95.1% | domain 481 |
+| Wikidata | 60.1% | P856 domain 304 |
+| GLEIF | 43.5% | Wikidata P1278 153, name+country 52, name 13 |
+| SEC | 43.1% | Wikidata P5531 120, ticker+name 46, cik-lookup 40, tickers list 12 |
+| ROR | 34.8% | Wikidata QID 119, domain 44, name 13 |
+| IRS BMF | 3.6% | name 14, name+state 3, SEC EIN 1 |
+
+Which becomes, on `companies`:
+
+| field | coverage | field | coverage |
+|---|---|---|---|
+| `domain_registered_year` | 95.1% | `sic` | 36.6% |
+| `country` / `region` / `hq_city` | 72.3% | `ror_id` | 34.8% |
+| `founded_year` | 70.2% | `assets` | 34.0% |
+| `wikidata_id` | 60.1% | `revenue` | 33.4% |
+| `legal_form` | 54.2% | `employees` | 16.8% |
+| `domicile` | 50.0% | `parent_wikidata_id` | 16.6% |
+| `is_public` (external) | 48.6% | `parent_lei` | 4.3% |
+| `lei` / `cik` | 43.5% / 43.1% | `ein` / `ntee_code` | 3.6% / 3.0% |
+
+`founded_year` at 70% is the headline: the rollup had no founding date at all,
+and 60% of those years come from Wikidata P571 with the rest spread across
+GLEIF's incorporation date, ROR, Form D, the IRS ruling month and SEC's first
+filing.
+
+### What crosses over to `companies`
+
+`--rollup` folds a curated subset onto each company. It has to happen inside
+`rollup` — that writes with `ReplaceOne`, so a separate pass would be overwritten
+by the next rebuild — which also means the article scraper's `--rollup-when-idle`
+picks the enrichment up with no extra step.
+
+| field | precedence |
+|---|---|
+| `wikidata_id` `cik` `lei` `ein` `ror_id` | the join keys, for whatever comes next |
+| `founded_year` + `_src` | Wikidata P571 › GLEIF creation date › ROR established › Form D › IRS ruling › SEC first filing |
+| `domain_registered_year` | RDAP |
+| `country` `region` `hq_city` + `location_src` | SEC (US only) › GLEIF › Wikidata › ROR › IRS › dateline |
+| `domicile` + `_src` | SEC state of incorporation › GLEIF jurisdiction › Form D › Wikidata P740 |
+| `sic` `sic_desc` `ntee_code` `legal_form` | SEC, IRS, GLEIF respectively |
+| `is_public` + `_method` + `_confidence`, `ticker`, `listings` | see below |
+| `revenue` `revenue_unit` `revenue_year`, `assets`, `employees` | SEC XBRL › IRS BMF; employees from Wikidata P1128 |
+| `parent_wikidata_id` `parent_lei` `parent_name` | Wikidata P749/P127, GLEIF level 2 |
+| `enrichment_sources` `enriched_at` `enrichment_version` | which sources answered |
+
+**Direct statements beat proxies for age.** GLEIF has Smithfield incorporating in
+1997 and the SEC first hearing from it in 1994; the company was founded in 1936
+and only Wikidata says so. The IRS ruling month and the first filing date are
+last precisely because they date a registration rather than a founding.
+
+**Money carries its unit.** Toyota reports 29.9 trillion — JPY. A bare number
+would be three orders of magnitude wrong the moment anyone compared it.
+
+**SEC addresses are only used when they are US.** EDGAR codes foreign locations
+in a scheme of its own (`M0` for Japan) and files the country in the city line,
+so a foreign filer would otherwise contribute country `M0`, city `JAPAN`. GLEIF
+and Wikidata state a real ISO country and answer for those.
+
+### `is_public`, revisited
+
+The heuristic reads concentration of ticker mentions, which is the best a press
+release can support. A registry does better in both directions:
+
+| rule | `is_public` | confidence |
+|---|---|---|
+| a symbol in SEC's own ticker/exchange list | `true` | high |
+| Wikidata P414 stock exchange | `true` | medium |
+| modal ticker belongs to a differently-named filer, and another registry knows this company | `false` | medium |
+| GLEIF knows the entity and maps zero ISINs | `false` | medium |
+| otherwise | the heuristic's answer, untouched | |
+
+The GLEIF rule is withheld when the heuristic already found a concentrated
+self-ticker: GLEIF maps ISINs it has been told about, and silence there is weaker
+evidence than a symbol repeated across a company's own releases.
+
+It corrects in both directions. Smithfield Foods came out of the rollup as
+`is_public: false` via `no_consistent_ticker` — its releases simply do not print
+`Nasdaq: SFD` often enough — and SEC's list settles it as `true` at high
+confidence. Run `--rollup --no-enrichment` and it reverts, which is how you
+measure that.
+
+The third rule is the **known gap from the previous section, closed**. Toyota
+Motor North America prints `NYSE:TM` in 63.8% of its releases and was called
+public off it. SEC's list says `TM` belongs to `TOYOTA MOTOR CORP/`; GLEIF knows
+`TOYOTA MOTOR NORTH AMERICA, INC.` as its own entity in Plano, TX. So the ticker
+is the parent's, and the subsidiary is now `is_public: false`,
+`ticker_belongs_to_other_filer` — with the SEC name path having meanwhile found
+TMNA's *own* CIK, `0002109822`.
+
+`org_type` is treated more conservatively: an external answer is only allowed
+through when the heuristic fell back to its `operating_company` default. Nothing
+external says "this is a securities firm trawling for plaintiffs" or "this is a
+market-research publisher", and those behavioural classifications are the ones
+that matter most here — a registry calling Pomerantz an operating company is true
+and useless.
+
+Re-running `python py/company.py --rollup --no-enrichment` rebuilds the
+heuristic-only document, which is what makes every overwrite above reversible and
+lets you measure how often the rules were right on their own.
+
+### Worked example
+
+```json
+{
+  "_id": "/news/smithfield-foods%2C-inc./",
+  "name": "Smithfield Foods, Inc.",
+  "wikidata_id": "Q1477575", "cik": "0000091388",
+  "lei": "CVTIPZRZJC0JQEZLL598",
+  "founded_year": 1936, "founded_year_src": "wikidata_p571",
+  "domain_registered_year": 1997,
+  "country": "US", "region": "VA", "hq_city": "Smithfield", "location_src": "sec",
+  "domicile": "US-VA", "domicile_src": "sec_state_of_inc",
+  "sic": "2011", "sic_desc": "Meat Packing Plants",
+  "legal_form": "HOV4", "legal_form_src": "gleif_elf",
+  "is_public": true, "is_public_method": "sec_ticker_exchange",
+  "is_public_confidence": "high",
+  "ticker": {"exchange": "Nasdaq", "symbol": "SFD", "source": "sec"},
+  "revenue": 15531000000, "revenue_unit": "USD", "revenue_year": 2025,
+  "assets": 12177000000, "assets_unit": "USD",
+  "parent_wikidata_id": "Q17499655", "parent_name": "WH Group",
+  "parent_lei": "254900A4AYEDRWYSE928",
+  "parent_relation": "IS_ULTIMATELY_CONSOLIDATED_BY",
+  "enrichment_sources": ["wikidata", "sec", "gleif", "rdap"],
+  "enrichment_version": "tier1-1"
+}
+```
+
+Note the founding year: the rollup had no such field at all, GLEIF says 1997 and
+the SEC says 1994, and the answer is 1936.
+
+### Known gaps
+
+**Private companies are hard, and that is the point of the last-resort tiers.**
+Kentik has a Wikidata item with no CIK on it, and EDGAR files it as `KENTIK
+TECHNOLOGIES, INC.`, which does not normalise to `kentik` — so its four Form D
+filings, which state its founding year and revenue band, are not reached. Exact
+name blocks are what keep the false-positive rate at zero, and this is the price.
+
+**ROR lags renames.** The corpus's `San Diego Zoo Wildlife Alliance` is in ROR as
+`Zoological Society of San Diego` with the alias `San Diego Zoo Global`, on the
+domain `sandiegozoo.org` rather than `sandiegozoowildlifealliance.org` — so ROR
+misses it, though the IRS BMF finds it by name and supplies EIN, NTEE code and
+$437.6M of revenue.
+
+**Country is the binding constraint on GLEIF and the IRS.** Both are matched on a
+name block cut by region where one is known, and fewer than half of datelines
+name one.
 
 ## Label articles
 
@@ -329,12 +583,21 @@ docker compose --profile labeling up -d labeler
 Set the labeler name by editing `LABELER_NAME` in `docker-compose.yml`.
 
 Both labelers work the same way: a sampled article, a rubric, a decision, and
-optional metadata. Each also has a third decision that records a *flagged hard
-negative* — trained as a negative, but retrievable as a group: **irrelevant w/
-product info** (`has_product_details`) for launch, and **AI feature**
-(`has_ai_feature`) for AI, the case where a largely non-AI product introduces a
-generative-AI feature. What differs otherwise is the question, the sampling, and
-the drop folder for LLM batches.
+optional metadata. What they record differs. Launch is binary (`is_relevant`)
+plus one *flagged hard negative* — **irrelevant w/ product info**
+(`has_product_details`), trained as a negative but retrievable as a group. AI is
+four-way, written as a single `ai_class` that is literally the class index the
+model trains on:
+
+| `ai_class` | decision | what it means |
+|---|---|---|
+| `0` | not AI | there is a product, but nothing generative is central to it or being shipped |
+| `1` | AI product | generative AI is the value proposition, sold into an end market |
+| `2` | AI feature | a largely non-AI product bolting a generative feature onto itself |
+| `3` | AI tooling | the buyer is the AI industry itself — RAG and vector databases, agent frameworks, inference and compute providers, eval tooling |
+
+What differs otherwise is the question, the sampling, and the drop folder for LLM
+batches.
 
 - **Launch** oversamples launch-keyword headers 70/30 against an unbiased random
   stream.
@@ -402,9 +665,9 @@ that produced it. Runs accumulate side by side; nothing is overwritten.
 ```
 /models/launch/distilbert-finetuned-20260819232201/
 ├── config.json, model.safetensors, tokenizer*   # the artefact inference loads
-├── metrics.json                                 # accuracy, ROC-AUC, per-class report,
-│                                                #   sizes, label counts, hyperparameters
-└── eval_predictions.csv                         # per-example true/predicted/probability
+├── metrics.json                                 # accuracy, ROC-AUC, confusion matrix,
+│                                                #   per-class report, sizes, label counts
+└── eval_predictions.csv                         # per-example true/predicted class + p(class)
 ```
 
 The Trainer's per-epoch checkpoints carry optimiser state and run several hundred
@@ -421,9 +684,18 @@ db.model_runs.find({task: "launch"}, {_id: 1, trained_at: 1, n_train: 1,
              .sort({trained_at: -1})
 ```
 
-One caveat when comparing: the 80/20 split is stratified with a fixed seed, but it
-is drawn over whatever labels exist at the time, so consecutive runs hold out
-different articles. The numbers track a moving evaluation set, not a fixed one.
+Headline `roc_auc`, `false_positive_rate` and `false_negative_rate` are
+one-vs-rest against class 1 (`relevant` / `ai`) on both tasks, so a four-way run
+stays comparable with a binary one and with its own earlier runs; the rest of the
+four-way picture is in `metrics.confusion_matrix` and the per-class report, which
+is where you see *which* class a missed AI product was read as.
+
+Two caveats when comparing. The 80/20 split is stratified with a fixed seed, but
+it is drawn over whatever labels exist at the time, so consecutive runs hold out
+different articles — the numbers track a moving evaluation set, not a fixed one.
+And stratification is dropped for a run where some class has fewer than two
+labelled examples, which a four-way split hits easily early on; the run prints a
+line when that happens.
 
 ## Run inference
 
@@ -448,6 +720,11 @@ and move it when you mean to.
 `ai-classifier` passes `--require-relevant-from launch`, which tracks the newest
 *launch* run; pass a version string instead to pin the gate. Either way it stays
 idle until that model has produced positives.
+
+Each prediction carries `predicted_class` — an index into the `classes` recorded
+on that run's `model_runs` document — and `class_probabilities`, the whole
+distribution rather than one positive-class score, so a threshold can be re-tuned
+without a second pass over the corpus. The gate matches `predicted_class: 1`.
 
 Predictions are keyed by `(article_id, model_version)`, so every model and every
 generation of it writes to the same `predictions` collection without colliding.

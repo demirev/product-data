@@ -41,6 +41,29 @@ def ensure_indexes():
 	# One document per training run, _id = the version its predictions carry.
 	db["model_runs"].create_index([("task", ASCENDING), ("trained_at", ASCENDING)])
 
+	# External enrichment; see py/enrich.py. `company_enrichment` shares its _id
+	# with `companies` (the uploader_link), so the join needs no index of its own
+	# — these back `--stats` and the crosswalk lookups instead.
+	db["company_enrichment"].create_index([("wikidata.qid", ASCENDING)], sparse=True)
+	db["company_enrichment"].create_index([("sec.cik", ASCENDING)], sparse=True)
+	db["company_enrichment"].create_index([("gleif.lei", ASCENDING)], sparse=True)
+	db["company_enrichment"].create_index([("enrichment_version", ASCENDING)])
+	# Staging for the bulk sources; every one of these backs a step in the
+	# matching cascade. The name indexes are compound with a region because that
+	# is the narrower block the resolver tries first — and they serve the
+	# name-only fallback too, since a query on the leading field uses the
+	# compound index as a prefix.
+	db["sec_tickers"].create_index([("ticker", ASCENDING)])
+	db["sec_tickers"].create_index([("name_norm", ASCENDING)])
+	# One row per symbol, so the CIK is a lookup key rather than the _id.
+	db["sec_tickers"].create_index([("cik", ASCENDING)])
+	db["gleif_lei"].create_index([("name_norm", ASCENDING), ("country", ASCENDING)])
+	db["gleif_rr"].create_index([("start_lei", ASCENDING), ("type", ASCENDING)])
+	db["irs_bmf"].create_index([("name_norm", ASCENDING), ("state", ASCENDING)])
+	db["ror"].create_index([("wikidata_id", ASCENDING)], sparse=True)
+	db["ror"].create_index([("domains", ASCENDING)])
+	db["ror"].create_index([("name_norms", ASCENDING)])
+
 
 def upsert_link_stubs(slugs, source, batch_size=1000):
 	"""Insert pending article stubs for `slugs`; return (inserted, already_present).

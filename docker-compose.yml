@@ -79,14 +79,14 @@ services:
     command: ["python", "py/classify/finetune.py", "--classify", "--task", "ai", "--loop",
       "--require-relevant-from", "launch"]
 
-  # One-shot jobs. `enrich` stamps company facts onto scraped articles; append
-  # --rollup to rebuild the companies collection from what it stamped. Neither is
-  # needed in steady state — the article scraper stamps as it scrapes and rolls
-  # up when it goes idle — only after an extractor change bumps a version.
-  enrich:
+  # One-shot job. Stamps company facts onto scraped articles; append --rollup to
+  # rebuild the companies collection from what it stamped. Neither is needed in
+  # steady state — the article scraper stamps as it scrapes and rolls up when it
+  # goes idle — only after an extractor change bumps a version.
+  company-facts:
     build: .
     image: prn-pipeline
-    profiles: ["enrich"]
+    profiles: ["company"]
     depends_on:
       mongo:
         condition: service_healthy
@@ -94,6 +94,36 @@ services:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: prn
     command: ["python", "py/company.py"]
+
+  # External enrichment. Resolves every rolled-up company against Wikidata, SEC,
+  # GLEIF, RDAP, the IRS BMF and ROR, and stores what each returns in
+  # `company_enrichment`; `company-facts --rollup` folds a subset onto
+  # `companies`.
+  #
+  # Continuous rather than one-shot because it is a polite, rate-limited crawl of
+  # ~99k companies, not a job that finishes in one sitting. Resumption is by
+  # resolver version, so a restart costs nothing and a company that has already
+  # answered is never asked again. The volume holds the bulk downloads (~600 MB,
+  # GLEIF being most of it) so a restart does not re-fetch them either.
+  enrich:
+    build: .
+    image: prn-pipeline
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: prn
+      ENRICH_DATA_DIR: /data/enrich
+      # SEC refuses requests whose User-Agent names no contact, so this is
+      # effectively required. It is sent to all six sources on every request —
+      # set it in your shell or a .env file to an address you are willing to be
+      # contacted at.
+      ENRICH_CONTACT: ${ENRICH_CONTACT:-}
+    volumes:
+      - enrich_data:/data/enrich
+    command: ["python", "py/enrich.py", "--loop"]
 
   labeler:
     build: .
@@ -148,3 +178,4 @@ services:
 volumes:
   mongo_data:
   models:
+  enrich_data:

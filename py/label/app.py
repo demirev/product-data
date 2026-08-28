@@ -150,14 +150,17 @@ TASKS = {
 		"skips": "ai_label_skips",
 		"sample": sample_ai_article,
 		"rubric": "_rubric_ai.html",
-		"decisions": [(1, "AI product"), (0, "not AI"), (2, "AI feature")],
-		# is_ai_product stays binary; the third option is a flagged hard negative —
-		# a largely non-AI product that bolts on a generative feature.
-		"decision_fields": lambda v: {
-			"is_ai_product": 0 if v == 2 else v,
-			"has_ai_feature": v == 2,
-		},
-		"csv_decisions": {"ai": 1, "not_ai": 0, "ai_feature": 2},
+		"decisions": [
+			(1, "AI product"),
+			(0, "not AI"),
+			(2, "AI feature"),
+			(3, "AI tooling"),
+		],
+		# Unlike launch, this task is not binary: the four decisions are four
+		# classes the model learns to separate, and the decision value *is* the
+		# class index — see TASKS["ai"]["classes"] in py/classify/finetune.py.
+		"decision_fields": lambda v: {"ai_class": v},
+		"csv_decisions": {"ai": 1, "not_ai": 0, "ai_feature": 2, "ai_tooling": 3},
 		"selects": [("modality", MODALITIES)],
 		# "no product" is a skip rather than a label: the question presupposes a
 		# product, so those articles must stay out of the training set. Recording
@@ -165,9 +168,10 @@ TASKS = {
 		# ordinary "unsure" skip.
 		"extra_actions": [("no product / N/A", "no_product")],
 		"stats": [
-			("ai", {"is_ai_product": 1}),
-			("not ai", {"is_ai_product": 0}),
-			("w/ ai feature", {"has_ai_feature": True}),
+			("ai", {"ai_class": 1}),
+			("not ai", {"ai_class": 0}),
+			("ai feature", {"ai_class": 2}),
+			("ai tooling", {"ai_class": 3}),
 		],
 		"review_dir": os.environ.get(
 			"AI_LABEL_REVIEW_DIR", os.path.join(DATA_DIR, "ai-labels-for-review")
@@ -217,8 +221,9 @@ def build_label_doc(task, decision, form):
 	doc["labeler"] = LABELER
 	doc["labeled_at"] = datetime.now(timezone.utc)
 
-	# Metadata describes the thing being labeled, so it only applies to positives
-	# and to the flagged hard negatives — never to a plain "no".
+	# Metadata describes the thing being labeled, so it applies to every decision
+	# except a plain "no": the launch task's flagged hard negative and the AI
+	# task's feature and tooling classes all still describe something.
 	if decision != 0:
 		metadata = {}
 		for name in [n for n, _ in task["selects"]] + ["notes"]:
