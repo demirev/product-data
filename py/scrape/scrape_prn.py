@@ -3,6 +3,8 @@ import random
 import sys
 import os
 import time
+import zlib
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -88,8 +90,12 @@ TIMEOUT = (10, 30)
 # resolver, which then answers EAI_AGAIN in bursts. The retries below cover the
 # blips that survive that — the transport retries them itself, before the caller
 # ever counts an attempt.
+#
+# `pool_maxsize` is sized for the worker threads in `scrape_all_articles`; the
+# default of 10 would make them queue on the pool, or open and discard
+# connections past it, rather than reuse one each.
 SESSION = requests.Session()
-SESSION.mount("https://", HTTPAdapter(max_retries=Retry(
+SESSION.mount("https://", HTTPAdapter(pool_maxsize=64, max_retries=Retry(
 	total=3, connect=3, read=3, status=3, backoff_factor=0.5,
 	status_forcelist=(429, 500, 502, 503, 504), allowed_methods=("GET",))))
 
@@ -151,19 +157,33 @@ def scrape_links_on_page(url, selector=".newsreleaseconsolidatelink"):
 	response = SESSION.get(url, timeout=TIMEOUT)
 	if response.status_code != 200:
 		raise ScrapingError("Failed to scrape the URL")
-	soup = BeautifulSoup(response.content, "html.parser")
+	soup = BeautifulSoup(response.content, "lxml")
 	for link in soup.select(selector):
 		hrefs.append(link["href"])
 	return hrefs
 
 
-def scrape_all_articles(categories=None):
+def scrape_all_articles(categories=None, workers=1, shard=(0, 1)):
 	"""Fetch all pending articles and fill in their content.
 
 	With `categories` left None every pending article is scraped, including the
 	category-less stubs written by `scrape_sitemap.py` and `scrape_wayback.py`.
 	Returns the number scraped successfully, which is what tells the caller
 	whether any derived data downstream is now stale.
+
+	`workers` threads fetch concurrently. A fetch is a network wait of tens of
+	milliseconds with second-long stalls, and the loop used to spend most of
+	its time in those stalls one at a time. Parsing holds the GIL, which is why
+	the parser is lxml rather than html.parser: at ~0.2s a page the pure-Python
+	one capped a process at about five articles a second however many threads
+	it ran.
+
+	`shard=(k, n)` keeps only the stubs whose hashed `_id` falls in bucket `k`
+	of `n`, so `n` processes can each take a disjoint slice of the same queue
+	without coordinating through Mongo. Without it two replicas would shuffle
+	the same list and fetch every article twice — harmless, since the update is
+	idempotent, but half the work wasted. `zlib.crc32` rather than `hash()`
+	because the latter is salted per process.
 
 	Picks up `failed` articles below `MAX_ATTEMPTS` as well as `pending` ones, so
 	an outage costs a pass rather than the articles: a network blip that fails
@@ -177,12 +197,13 @@ def scrape_all_articles(categories=None):
 	if categories:
 		query["category"] = {"$in": categories}
 
-	pending = list(articles.find(query, {"_id": 1, "url": 1}))
+	k, n = shard
+	pending = [doc for doc in articles.find(query, {"_id": 1, "url": 1})
+	           if zlib.crc32(doc["_id"].encode()) % n == k]
 	random.shuffle(pending)
-	print(f"Scraping {len(pending)} pending articles")
+	print(f"Scraping {len(pending)} pending articles (shard {k}/{n}, {workers} workers)")
 
-	done = 0
-	for doc in pending:
+	def scrape_one(doc):
 		article_link = doc["url"]
 		print(f"Scraping {article_link}")
 		try:
@@ -198,18 +219,27 @@ def scrape_all_articles(categories=None):
 					"$inc": {"attempts": 1},
 				},
 			)
-			done += 1
+			return 1
 		except Exception as e:
-			gone = getattr(e, "status_code", None) in GONE_STATUS
+			status = getattr(e, "status_code", None)
+			gone = status in GONE_STATUS
 			print(f"{'Gone' if gone else 'Failed'}: {article_link}: {e}")
+			# `last_status` is the numeric code when the page answered, so a
+			# later sweep can re-queue every 403 or 429 with one query instead
+			# of a regex over `last_error`. None for DNS, timeouts and
+			# unparseable markup.
 			articles.update_one(
 				{"_id": doc["_id"]},
 				{
-					"$set": {"status": "gone" if gone else "failed", "last_error": str(e)},
+					"$set": {"status": "gone" if gone else "failed",
+					         "last_error": str(e), "last_status": status},
 					"$inc": {"attempts": 1},
 				},
 			)
-	return done
+			return 0
+
+	with ThreadPoolExecutor(max_workers=workers) as pool:
+		return sum(pool.map(scrape_one, pending))
 
 
 def scrape_article(link, prefix="https://www.prnewswire.com"):
@@ -221,7 +251,7 @@ def scrape_article(link, prefix="https://www.prnewswire.com"):
 		raise ScrapingError(f"Unable to access the link. Status code: {response.status_code}",
 			response.status_code)
 
-	soup = BeautifulSoup(response.content, "html.parser")
+	soup = BeautifulSoup(response.content, "lxml")
 	header = soup.select_one(".detail-headline h1")
 	body = soup.select_one(".release-body")
 	uploader = soup.select_one(".meta + a strong")
@@ -291,7 +321,15 @@ if __name__ == "__main__":
 		help="rebuild the companies collection after any article pass that scraped something")
 	parser.add_argument("--idle-sleep", type=int, default=IDLE_SLEEP_SECONDS,
 		help="seconds to sleep between passes when in --loop mode")
+	parser.add_argument("--workers", type=int, default=int(os.environ.get("SCRAPE_WORKERS", "1")),
+		help="concurrent article fetches per process (env SCRAPE_WORKERS)")
+	parser.add_argument("--shard", type=str, default=os.environ.get("SCRAPE_SHARD", "0/1"),
+		help="K/N: scrape only the Kth of N hash buckets of the queue (env SCRAPE_SHARD)")
 	args = parser.parse_args()
+
+	shard = tuple(int(x) for x in args.shard.split("/"))
+	if len(shard) != 2 or not 0 <= shard[0] < shard[1]:
+		parser.error(f"--shard must be K/N with 0 <= K < N, got {args.shard!r}")
 
 	print("Starting")
 	print(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"))
@@ -313,7 +351,8 @@ if __name__ == "__main__":
 			# wayback stubs carry no category, so an `$in` over the default list
 			# would skip every stub the back-fills exist to create.
 			scraped = scrape_all_articles(
-				categories=args.categories.split(",") if args.categories else None)
+				categories=args.categories.split(",") if args.categories else None,
+				workers=args.workers, shard=shard)
 
 		# An emptied queue is the cheapest moment to rebuild `companies`: the
 		# releases just scraped already carry their facts (scrape_article stamps

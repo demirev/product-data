@@ -24,7 +24,7 @@ all run under Docker Compose; only Mongo's port is published to the host
 (`27017`), so connect to it directly from the host rather than through `docker`
 (which needs `sudo` here).
 
-- **DB / collections:** database `prn` (~396k docs). `articles` holds the press
+- **DB / collections:** database `prn` (~3.2M docs). `articles` holds the press
   releases; `ai_labels` + `ai_label_skips` hold already-decided ids for *this*
   task (skip these); `labels` + `label_skips` belong to the launch task.
 - **Article shape:** `_id` (the join key — a slug, never invent one), `header`,
@@ -35,24 +35,59 @@ all run under Docker Compose; only Mongo's port is published to the host
 
 ### Sampling
 
-Every scraped article carries an indexed `ai_vocab` tier assigned by
-`py/vocab.py` — use it instead of writing your own regex, and use Mongo's
-`$sample`:
+Exclude ids already present in `ai_labels` or `ai_label_skips`, and ids in any
+CSV already in this folder (those may still be awaiting review). Then draw in
+two steps:
 
-| `ai_vocab` | meaning | draw |
+1. **Launch-labeled pool.** Articles published 2023 onward whose launch label
+   describes a product (`labels` with `launch_class` in `[1, 2, 3]`). These are
+   the highest-value rows of all; take every one that remains.
+2. **Vocabulary pools**, for the rest of the batch, in the shares below.
+
+Every scraped article carries an indexed `ai_vocab` tier assigned by
+`py/vocab.py`; use it instead of writing your own regex, and use Mongo's
+`$sample`. A **launch-predicted** article is one the newest launch run (the
+highest `distilbert-finetuned-<timestamp>` `model_version` in `predictions`)
+gave `predicted_class: 1`. The AI model runs downstream of the launch model and
+sees only those articles, so they match its input at serve time and seldom turn
+out to be `no_product`.
+
+| pool | `ai_vocab` | draw |
 |---|---|---|
-| `"genai"` | generative-AI vocabulary present (LLM, diffusion, agentic, …) | **50%** |
-| `"generic"` | AI/ML wording only (machine learning, predictive analytics, "AI-powered") | **25%** |
-| any | unrestricted, for an unbiased slice | **25%** |
+| launch-predicted | `"genai"`: generative-AI vocabulary present (LLM, diffusion, agentic, …) | **45%** |
+| launch-predicted | `"generic"`: AI/ML wording only (machine learning, predictive analytics, "AI-powered") | **15%** |
+| all articles | `"genai"` | **20%** |
+| all articles | `"generic"` | **5%** |
+| all articles | any, for an unbiased slice | **15%** |
 
 The `generic` tier is deliberate: it is where the hard negatives live. Without
 it the classifier learns "the word AI" rather than the concept, so do not skip
 it because the answers feel obvious.
 
-Exclude ids already present in `ai_labels` or `ai_label_skips`. Articles that
-already carry a launch label (`labels` with `is_relevant: 1` or
-`has_product_details: true`) are the highest-value rows of all, since the AI
-model runs downstream of the launch model — label those first if any remain.
+For a launch-predicted pool, match the articles first and join their
+predictions, since the tier is the narrower filter:
+
+```python
+[
+    {"$match": {"status": "scraped", "ai_vocab": tier, "published_at": dates, "_id": {"$nin": done}}},
+    {"$lookup": {"from": "predictions", "let": {"id": "$_id"}, "as": "p", "pipeline": [
+        {"$match": {"$expr": {"$and": [
+            {"$eq": ["$article_id", "$$id"]}, {"$eq": ["$model_version", version]},
+        ]}}},
+        {"$match": {"predicted_class": 1}},
+    ]}},
+    {"$match": {"p": {"$ne": []}}},
+    {"$sample": {"size": n}},
+]
+```
+
+**Dates.** Within each pool, take 85% of the draw from releases with
+`published_at` on or after 2023-01-01, when generative-AI products appear in
+volume, and 15% from earlier ones. `published_at` is a UTC datetime the scraper
+parses from the `published_date` display string; filter on it in the `$match`
+ahead of `$sample`, e.g. `{"published_at": {"$gte": datetime(2023, 1, 1)}}`. The
+field is not indexed, so a draw takes from a few seconds (`genai`) to about a
+minute (unrestricted, or a launch-predicted `generic` join).
 
 Dump `_id`/`header`/`body` to a file, label per the brief below, and write the
 result back here as `<batch-name>.csv`. Because every `_id` is in Mongo, you can
@@ -149,12 +184,14 @@ generative workload it serves); leave blank otherwise:
   `multimodal`, `agentic`, `infrastructure`, `other`
 - `notes` — short free text, e.g. the name of the product or the model it uses
 
-**Optional second call** — `launch_decision`, one of `relevant`, `irrelevant`,
-`product_info`: whether the same release is a *product launch*, per the rubric in
-[`../labels-for-review/README.md`](../labels-for-review/README.md). Fill it if
-you are confident; it pre-fills a dropdown so the human can confirm both calls in
-one pass. It is stored separately from the labels produced by the launch labeler
-proper, and never overwrites an existing one. Leave it blank when unsure.
+**Optional second call** — `launch_decision`, one of `relevant`, `feature_release`,
+`irrelevant`, `product_info`: whether the same release is a *product launch*, per
+the rubric in [`../labels-for-review/README.md`](../labels-for-review/README.md).
+Fill it if you are confident; it pre-fills a dropdown so the human can confirm
+both calls in one pass. It is stored separately from the labels produced by the
+launch labeler proper, and never overwrites an existing one. Leave it blank when
+unsure, and for articles already in `labels`: the dropdown is shown only for
+articles without a launch label.
 
 **Output rules.** Emit one valid CSV with a header row, written to this folder as
 `<batch-name>.csv`. Use the exact column names below; one row per article; never
@@ -202,6 +239,11 @@ which records agreement with your call.
   resumes automatically and re-loading a file never double-serves a row.
 - The decision form arrives pre-filled from the CSV. Submitting unchanged =
   confirm; changing a radio = overwrite.
+- Cards with `llm_confidence` of 0.9 or more are shown in green. The **accept N
+  ≥ 0.9** button in the header records every pending row at that confidence as
+  the LLM called it, including its `launch_decision`, with
+  `source="llm_accepted"` and no `human_agreed`, so those rows stay out of the
+  agreement rate.
 - Each verified row is written to `ai_labels` with `source="llm_reviewed"`,
   `llm_label`, `human_agreed`, and `review_file`, so you can later measure the
   LLM's accuracy and mine the disagreements. The decision is stored as a single

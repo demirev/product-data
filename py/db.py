@@ -30,6 +30,10 @@ def ensure_indexes():
 		[("article_id", ASCENDING), ("model_version", ASCENDING)],
 		unique=True,
 	)
+	# The other way round: everything a version decided, positives first. The
+	# gating query for the second-stage classifier reads on it, and so does the
+	# explorer's read-model build (py/api/readmodel.py).
+	db["predictions"].create_index([("model_version", ASCENDING), ("predicted_class", ASCENDING)])
 	# `uploader_link` is the company key; the rollup and every per-company query
 	# read on it, and it also backs the facts backfill's resume filter.
 	db["articles"].create_index([("uploader_link", ASCENDING)])

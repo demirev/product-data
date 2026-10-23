@@ -1,0 +1,12 @@
+# Both images build with the repo root as their context, and Docker only reads
+# a .dockerignore at the context root — so fe/'s build artefacts have to be
+# excluded from here. Without this, `COPY fe/ ./` would drop the host's
+# node_modules on top of the one `npm ci` just installed in the image.
+fe/node_modules
+fe/dist
+venv/
+.git/
+data/
+temp/
+**/__pycache__/
+*.pyc

@@ -57,23 +57,40 @@ IDLE_SLEEP_SECONDS = 24 * 60 * 60
 # `model_version` its predictions carry, and its `_id` in `model_runs` — so any
 # prediction traces back to the weights and the eval stats that produced it.
 #
-# `classes` is the label space, indexed by the integer stored in `field`, so its
-# order is schema rather than presentation. Index 1 is the positive class in
-# every task: that invariant is what lets one code path report a single AUC and
-# false-positive rate, and gate on a single `predicted_class: 1`, for a binary
-# head and a four-way one alike.
+# `field` is the integer the labeler records: the index of the decision it was
+# given, in that task's *full* label space. `classes` is the narrower space this
+# head is trained on, and `collapse` maps one onto the other as the labels are
+# loaded. Both tasks currently record four decisions and train on two, because
+# separating four classes needs several times the hand labels that separating
+# two does — and both keep the discarded distinction in Mongo rather than at the
+# point of labelling, so widening a head back out is these two lines (name the
+# classes, remap them) plus a retrain, never a relabelling pass.
+#
+# Index 1 is the positive class in every task: that invariant is what lets one
+# code path report a single AUC and false-positive rate, and gate on a single
+# `predicted_class: 1`, whatever the head's width.
 TASKS = {
 	"launch": {
 		"labels": "labels",
-		"field": "is_relevant",
+		"field": "launch_class",
+		# 2 product_info (an already-launched product described in detail) and
+		# 3 feature_release (an incremental improvement to one) are both
+		# negatives here: neither announces something new to buy. They are the
+		# near misses the model gets wrong most often, so they are worth their
+		# own classes the day there are enough of them.
 		"classes": ["irrelevant", "relevant"],
+		"collapse": {0: 0, 1: 1, 2: 0, 3: 0},
 		"version_prefix": "distilbert-finetuned",
 		"legacy_version": "distilbert-finetuned-v1",
 	},
 	"ai": {
 		"labels": "ai_labels",
 		"field": "ai_class",
-		"classes": ["not_ai", "ai", "ai_feature", "ai_tooling"],
+		# The other direction: 2 ai_feature and 3 ai_tooling fold into the
+		# *positive* class, so the head learns "is any generative AI being
+		# shipped" and only 0 not_ai is a negative to it.
+		"classes": ["not_ai", "ai"],
+		"collapse": {0: 0, 1: 1, 2: 1, 3: 1},
 		"version_prefix": "distilbert-ai",
 		"legacy_version": "distilbert-ai-v1",
 	},
@@ -155,8 +172,9 @@ def initialize_models(classes, model_name=None):
 	MODEL_CONFIG["tokenizer"] = DistilBertTokenizer.from_pretrained(MODEL_CONFIG["model_name"])
 	MODEL_CONFIG["classes"] = list(classes)
 	
-	# Initialize model for sequence classification — two-way for launch, four-way
-	# for AI; the head is the only place the two tasks differ in shape.
+	# Initialize model for sequence classification. The width of this head is the
+	# only place the tasks differ in shape — both are two-way today, and either
+	# widens the moment its `classes` do.
 	MODEL_CONFIG["model"] = DistilBertForSequenceClassification.from_pretrained(
 		MODEL_CONFIG["model_name"], 
 		num_labels=len(MODEL_CONFIG["classes"])
@@ -184,6 +202,7 @@ def load_labeled_data(task="launch"):
 	"""Pull labels for `task` joined with article content from Mongo."""
 	db = get_db()
 	collection, field = TASKS[task]["labels"], TASKS[task]["field"]
+	collapse = TASKS[task]["collapse"]
 	labels = list(db[collection].find({}, {"_id": 1, field: 1}))
 	ids = [l["_id"] for l in labels]
 	articles = {
@@ -199,10 +218,12 @@ def load_labeled_data(task="launch"):
 		article = articles.get(label["_id"])
 		if not article:
 			continue
-		# A label written before the task's label space changed has no value in
-		# the current field. Skipping beats crashing the run, but it is silent
+		# Either a label written before the task's label space changed, and so
+		# carrying no value in the current field, or one whose value `collapse`
+		# has no class for. Skipping beats crashing the run, but it is silent
 		# data loss, so it gets counted and reported.
-		if label.get(field) is None:
+		value = collapse.get(label.get(field))
+		if value is None:
 			unlabeled += 1
 			continue
 		text = clean_text((article.get("header") or "") + " " + (article.get("body") or ""))
@@ -211,13 +232,13 @@ def load_labeled_data(task="launch"):
 		rows.append({
 			"_id": label["_id"],
 			"text": text,
-			"label": label[field],
+			"label": value,
 		})
 
 	df = pd.DataFrame(rows)
 	print(f"Loaded {len(df)} labeled press releases for task={task}")
 	if unlabeled:
-		print(f"Skipped {unlabeled} label(s) carrying no '{field}' — relabel or migrate them.")
+		print(f"Skipped {unlabeled} label(s) with no usable '{field}' — relabel or migrate them.")
 	return df
 
 
@@ -274,9 +295,10 @@ def train_run(df, task, version, output_dir, batch_size=8, epochs=10):
 	The same stats are recorded in the `model_runs` collection under
 	`_id = version`, the string predictions carry as `model_version`.
 	"""
-	# Stratification refuses a class with a single member, which a four-way split
-	# hits easily while the rarer classes are still being labelled. Falling back
-	# to an unstratified split costs balance; failing the run costs the run.
+	# Stratification refuses a class with a single member, which a thinly labelled
+	# class hits easily — as the collapsed-away classes in both tasks would, were
+	# they trained on. Falling back to an unstratified split costs balance;
+	# failing the run costs the run.
 	stratify = df["label"] if df["label"].value_counts().min() >= 2 else None
 	if stratify is None:
 		print("A class has fewer than 2 examples; splitting without stratification.")
@@ -345,8 +367,8 @@ def train_run(df, task, version, output_dir, batch_size=8, epochs=10):
 		"true_label": [classes[i] for i in pred_output.label_ids],
 		"predicted_label": [classes[i] for i in np.argmax(logits, axis=1)],
 		# One column per class rather than a single positive-class probability:
-		# on a four-way head the informative part of an error is which other
-		# class the model reached for, and how close it was.
+		# on a head wider than two the informative part of an error is which
+		# other class the model reached for, and how close it was.
 		**{f"p_{name}": probabilities[:, i] for i, name in enumerate(classes)},
 	})
 	eval_results_df["correct"] = (
@@ -394,9 +416,9 @@ def compute_metrics(eval_pred):
 	"""Compute metrics for evaluation during training.
 
 	The headline numbers are one-vs-rest against class 1 — the positive class in
-	every task — so a two-way head and a four-way one report the same names, and
-	`metric_for_best_model` keeps selecting on the same quantity across both. The
-	four-way detail lives in the confusion matrix and the per-class report.
+	every task — so a two-way head and a wider one report the same names, and
+	`metric_for_best_model` keeps selecting on the same quantity across both. Any
+	detail beyond that lives in the confusion matrix and the per-class report.
 	"""
 	logits, labels = eval_pred
 	classes = MODEL_CONFIG["classes"]
@@ -417,15 +439,15 @@ def compute_metrics(eval_pred):
 		'roc_auc': roc_auc,
 		# Each rate is taken over its own true class, so neither moves when the
 		# split's balance does: missed launches over the launches, false alarms
-		# over the non-launches. On the four-way head "negative" is every other
-		# class, so an AI product read as tooling counts here exactly as an AI
-		# product read as not_ai does.
+		# over the non-launches. On a head wider than two, "negative" is every
+		# other class, so an AI product read as tooling would count here exactly
+		# as an AI product read as not_ai does.
 		'false_positive_rate': fp / (fp + tn),
 		'false_negative_rate': fn / (fn + tp),
 		# Spelling out the labels keeps this square even on an epoch where the
 		# model predicts a single class, which it does while the fresh head
-		# settles — and on four classes it is the only place the off-diagonal
-		# confusions (tooling read as product, say) are visible at all.
+		# settles — and on more than two classes it is the only place the
+		# off-diagonal confusions (tooling read as product, say) show up at all.
 		'confusion_matrix': confusion_matrix(
 			labels, predictions, labels=range(len(classes))
 		).tolist(),

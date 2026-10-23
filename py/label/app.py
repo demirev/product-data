@@ -36,6 +36,9 @@ KEYWORD_SAMPLE_PROB = 0.7
 # for an unbiased slice. See py/vocab.py for how the tiers are assigned.
 AI_TIER_CUTOFFS = [(0.5, "genai"), (0.75, "generic")]
 
+# Review rows at or above this LLM confidence are highlighted and can be accepted in bulk.
+ACCEPT_CONFIDENCE = 0.9
+
 DATA_DIR = os.path.join(
 	os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data"
 )
@@ -85,9 +88,11 @@ def sample_ai_article():
 	done = list(done_ids(TASKS["ai"]))
 	match = {"status": "scraped", "_id": {"$nin": done}}
 
+	# Every launch decision except a plain "irrelevant": a launch, a release
+	# detailing an existing product and a feature release all describe a product.
 	seed = [
 		d["_id"] for d in get_db()["labels"].find(
-			{"$or": [{"is_relevant": 1}, {"has_product_details": True}]}, {"_id": 1}
+			{"launch_class": {"$in": [1, 2, 3]}}, {"_id": 1}
 		)
 	]
 	if seed:
@@ -110,34 +115,47 @@ def sample_ai_article():
 	return article
 
 
-# Each task is one yes/no question asked about an article, with its own label and
-# skip collections, decision vocabulary, sampler and review-CSV drop folder. The
-# two share every route, template and helper below.
+# Each task is one question asked about an article, with its own label and skip
+# collections, decision vocabulary, sampler and review-CSV drop folder. The two
+# share every route, template and helper below.
+#
+# `field` is the single integer a decision is stored as: the index of the option
+# that was clicked, recorded exactly as given. Both tasks deliberately offer more
+# options than the model they feed has classes — the extra ones are distinctions
+# worth having in the data, but still too thinly populated to separate — so
+# training folds them into a coarser space. That fold lives in
+# `TASKS[...]["collapse"]` in py/classify/finetune.py and nowhere else, never
+# here: no decision is lost on the way in, so widening a head later is a config
+# change rather than a relabelling pass.
 TASKS = {
 	"launch": {
 		"slug": "launch",
 		"title": "product launch",
 		"labels": "labels",
 		"skips": "label_skips",
+		"field": "launch_class",
 		"sample": sample_launch_article,
 		"rubric": "_rubric_launch.html",
+		# 2 and 3 both train as negatives for now: neither is a launch. But a
+		# release detailing an already-launched product and one shipping an
+		# incremental improvement to it are different things, and the second is
+		# the boundary the model gets wrong most often, so they are kept apart.
 		"decisions": [
 			(1, "relevant"),
+			(3, "feature release"),
 			(0, "irrelevant"),
 			(2, "irrelevant w/ product info"),
 		],
-		# is_relevant stays binary; the third option is a flagged hard negative.
-		"decision_fields": lambda v: {
-			"is_relevant": 0 if v == 2 else v,
-			"has_product_details": v == 2,
+		"csv_decisions": {
+			"relevant": 1, "irrelevant": 0, "product_info": 2, "feature_release": 3,
 		},
-		"csv_decisions": {"relevant": 1, "irrelevant": 0, "product_info": 2},
 		"selects": [("audience", AUDIENCES), ("domain", DOMAINS)],
 		"extra_actions": [],
 		"stats": [
-			("relevant", {"is_relevant": 1}),
-			("irrelevant", {"is_relevant": 0}),
-			("w/ product info", {"has_product_details": True}),
+			("relevant", {"launch_class": 1}),
+			("feature release", {"launch_class": 3}),
+			("irrelevant", {"launch_class": 0}),
+			("w/ product info", {"launch_class": 2}),
 		],
 		"review_dir": os.environ.get(
 			"LABEL_REVIEW_DIR", os.path.join(DATA_DIR, "labels-for-review")
@@ -148,18 +166,19 @@ TASKS = {
 		"title": "AI product",
 		"labels": "ai_labels",
 		"skips": "ai_label_skips",
+		"field": "ai_class",
 		"sample": sample_ai_article,
 		"rubric": "_rubric_ai.html",
+		# 2 and 3 train as the *positive* class for now — any generative AI being
+		# shipped counts — leaving "not AI" the model's only negative. Keep
+		# drawing the four-way boundary anyway; the breakdown below is what says
+		# when the rarer two have enough examples to be separated again.
 		"decisions": [
 			(1, "AI product"),
 			(0, "not AI"),
 			(2, "AI feature"),
 			(3, "AI tooling"),
 		],
-		# Unlike launch, this task is not binary: the four decisions are four
-		# classes the model learns to separate, and the decision value *is* the
-		# class index — see TASKS["ai"]["classes"] in py/classify/finetune.py.
-		"decision_fields": lambda v: {"ai_class": v},
 		"csv_decisions": {"ai": 1, "not_ai": 0, "ai_feature": 2, "ai_tooling": 3},
 		"selects": [("modality", MODALITIES)],
 		# "no product" is a skip rather than a label: the question presupposes a
@@ -217,13 +236,14 @@ def stats(task):
 
 def build_label_doc(task, decision, form):
 	"""Core label doc shared by manual and review labelling."""
-	doc = task["decision_fields"](decision)
+	doc = {task["field"]: decision}
 	doc["labeler"] = LABELER
 	doc["labeled_at"] = datetime.now(timezone.utc)
 
 	# Metadata describes the thing being labeled, so it applies to every decision
-	# except a plain "no": the launch task's flagged hard negative and the AI
-	# task's feature and tooling classes all still describe something.
+	# except a plain "no": index 0 is the only option in either task with nothing
+	# to describe — the launch task's hard negatives and feature releases, and the
+	# AI task's feature and tooling classes, all still describe something.
 	if decision != 0:
 		metadata = {}
 		for name in [n for n, _ in task["selects"]] + ["notes"]:
@@ -334,17 +354,36 @@ def review_context(task, file):
 	done = done_ids(task, ids)
 	pending = [r for r in rows if r.get("id") and r["id"] not in done]
 
+	# Confident rows whose decision the app can record, as a label or a reasoned skip.
+	recordable = set(task["csv_decisions"]) | {reason for _, reason in task["extra_actions"]}
+	confident = []
+	for r in pending:
+		try:
+			conf = float(r.get("llm_confidence") or 0)
+		except ValueError:
+			continue
+		if conf >= ACCEPT_CONFIDENCE and r.get("decision", "").strip().lower() in recordable:
+			confident.append(r)
+
+	article = decorate_cross(task, review_article(task, pending[0]) if pending else None)
+	if article:
+		article["confident"] = pending[0] in confident
+
 	labels = get_db()[task["labels"]]
-	decided = labels.count_documents({"review_file": file})
+	# Bulk-accepted rows carry no human_agreed, so they stay out of the rate.
+	decided = labels.count_documents({"review_file": file, "human_agreed": {"$exists": True}})
 	agreed = labels.count_documents({"review_file": file, "human_agreed": True})
 	return {
 		"task": task,
 		"file": file,
-		"article": decorate_cross(task, review_article(task, pending[0]) if pending else None),
+		"article": article,
+		"confident": confident,
 		"review_stats": {
 			"total": len(ids),
 			"reviewed": len(ids) - len(pending),
 			"agreement": round(100 * agreed / decided) if decided else None,
+			"confident": len(confident),
+			"threshold": ACCEPT_CONFIDENCE,
 		},
 	}
 
@@ -467,6 +506,31 @@ async def review_skip_post(request: Request, task: str):
 		doc["human_agreed"] = llm_label == reason
 	get_db()[task["skips"]].update_one({"_id": article_id}, {"$set": doc}, upsert=True)
 	write_cross_label(task, article_id, form)
+	return render_review_card(request, task, file)
+
+
+@app.post("/review/{task}/accept", response_class=HTMLResponse)
+async def review_accept_post(request: Request, task: str):
+	"""Record every pending confident row in `file` as the LLM called it."""
+	task = get_task(task)
+	form = await request.form()
+	file = form["file"]
+	db = get_db()
+	cross = TASKS.get(task.get("cross_task"))
+	for row in review_context(task, file)["confident"]:
+		llm_label = row["decision"].strip().lower()
+		decision = task["csv_decisions"].get(llm_label)
+		# No human_agreed: nobody read the article.
+		common = {"source": "llm_accepted", "review_file": file, "llm_label": llm_label}
+		if decision is None:
+			doc = {"labeler": LABELER, "skipped_at": datetime.now(timezone.utc), "reason": llm_label, **common}
+			db[task["skips"]].update_one({"_id": row["id"]}, {"$set": doc}, upsert=True)
+		else:
+			doc = {**build_label_doc(task, decision, row), **common}
+			db[task["labels"]].update_one({"_id": row["id"]}, {"$set": doc}, upsert=True)
+		suggested = cross and cross["csv_decisions"].get(row.get(f"{cross['slug']}_decision", "").strip().lower())
+		if suggested is not None:
+			write_cross_label(task, row["id"], {"cross_decision": str(suggested)})
 	return render_review_card(request, task, file)
 
 

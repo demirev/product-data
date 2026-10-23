@@ -26,8 +26,8 @@ all run under Docker Compose; only Mongo's port is published to the host
 - **Client:** no host-level `mongosh`; use the project venv's pymongo
   (`venv/bin/python`, `MongoClient("mongodb://localhost:27017")["prn"]`).
 
-Sample the same way the app does (`py/label/app.py:sample_article`): exclude ids
-already in `labels`/`label_skips`, then draw ~70% from headers matching the
+Sample the same way the app does (`py/label/app.py:sample_launch_article`):
+exclude ids already in `labels`/`label_skips`, then draw ~70% from headers matching the
 launch-keyword regex (`launch|unveil|debut|introduc|roll(s|ing)? out|now
 available|general availability`, case-insensitive) and ~30% random for an
 unbiased slice. Use Mongo's `$sample` for the random draw. Dump
@@ -39,11 +39,17 @@ back here as `<batch-name>.csv`. Because every `_id` is in Mongo, you can omit
 
 ## Labeling brief (for the LLM)
 
-**Task.** You are labeling PRNewswire press releases to bootstrap a binary
-classifier that detects **new product/service launches**. For each article,
-output a provisional label that a human will then quickly verify. Be decisive
-but honest: your `llm_confidence` and `llm_rationale` are what let the human skim
-rather than re-read, and your agreement rate against the human is measured.
+**Task.** You are labeling PRNewswire press releases to bootstrap a classifier
+that detects **new product/service launches**. For each article, output a
+provisional label that a human will then quickly verify. Be decisive but honest:
+your `llm_confidence` and `llm_rationale` are what let the human skim rather than
+re-read, and your agreement rate against the human is measured.
+
+There are four decisions but the model trained on them is currently **binary**:
+`relevant` is the positive class, and the other three are all negatives. Label
+all four anyway — the distinction is stored exactly as you emit it, and the
+classes are split out later once each has enough examples; a call collapsed at
+labelling time cannot be recovered.
 
 **Decision (the `decision` column) — pick exactly one:**
 
@@ -51,32 +57,47 @@ rather than re-read, and your agreement rate against the human is measured.
   or service that is **newly available** from the issuing company. New product
   launches; major releases with their own name; public beta / early access (if
   signups open); new services with defined scope; co-developed products.
+- `feature_release` — something new *is* shipping, but as an addition to an
+  existing product rather than as a product in its own right: a capability,
+  module or integration inside something customers already have.
 - `irrelevant` — anything else: funding / M&A / earnings / hires; awards &
-  analyst rankings; partnerships & integrations; feature updates & patches;
-  regional expansion of an existing product; rebrands; clinical/research
-  milestones without a product; events; corporate updates; discontinuations.
-- `product_info` — **not a launch** (so it's still a negative), *but* the release
-  carries substantive detail about an already-launched product: capabilities,
-  specs, pricing, customer wins. These are kept as hard negatives to curb false
-  positives, so flag them rather than lumping them into `irrelevant`.
+  analyst rankings; partnerships; regional expansion of an existing product;
+  rebrands; clinical/research milestones without a product; events; corporate
+  updates; discontinuations.
+- `product_info` — **not a launch**, and nothing new shipping either, *but* the
+  release carries substantive detail about an already-launched product:
+  capabilities, specs, pricing, customer wins. These are kept as hard negatives
+  to curb false positives, so flag them rather than lumping them into
+  `irrelevant`.
 
 **Tiebreaker:** after reading it, can you name a specific thing a customer could
 now buy, sign up for, or download that they couldn't before? If yes →
 `relevant`. "Industry's first" hype does **not** count — apply the tiebreaker. A
-named & priced thing → new product. An update to a named *existing* product →
-`irrelevant`. Free / open-source releases count if they're a discrete thing.
-When genuinely torn between `relevant` and a negative, prefer the negative and
-lower your confidence (the human will catch under-calls during review).
+named & priced thing → new product. Free / open-source releases count if they're
+a discrete thing. When genuinely torn between `relevant` and a negative, prefer
+the negative and lower your confidence (the human will catch under-calls during
+review).
 
-**Optional metadata** — fill only when `decision` is `relevant` or
-`product_info`; leave blank otherwise:
+**`relevant` or `feature_release`?** The line between a product and a feature is
+genuinely blurred, and there is no rule that settles every case — **use your best
+judgement, and say which way you leaned in the `llm_rationale`.** As a guide: a
+*major* release counts as a new product — it has its own name, its own pricing,
+is buyable on its own, or is a version customers have to move to. An
+*incremental* improvement to what they already have is a `feature_release` — a
+capability added to an existing tier, a new integration, a performance or UI
+update, a patch. When those signals conflict, weigh how the release itself frames
+the thing, and lower your confidence so the human looks closely.
+
+**Optional metadata** — fill only when `decision` is `relevant`,
+`feature_release` or `product_info`; leave blank otherwise:
 
 - `audience` — one of: `b2b`, `b2c`, `b2g`, `mixed`
 - `domain` — one of: `ai_ml`, `software`, `hardware_iot`, `biotech_pharma`,
   `healthcare`, `fintech`, `energy_cleantech`, `automotive_mobility`,
   `industrial`, `consumer_goods`, `media_entertainment`, `other`
   (security products live under `software`)
-- `notes` — short free text, e.g. the name of the launched product
+- `notes` — short free text, e.g. the name of the launched product (for a
+  `feature_release`, the feature and the product it lands in)
 
 **Output rules.** Emit one valid CSV with a header row, written to this folder as
 `<batch-name>.csv`. Use the exact column names below; one row per article; never
@@ -91,6 +112,7 @@ id,decision,llm_confidence,llm_rationale,audience,domain,notes
 prn_0a1b,relevant,0.93,"Names a new API customers can sign up for today.",b2b,software,Foo API
 prn_0a2c,irrelevant,0.88,"Series A funding announcement; no purchasable product.",,,
 prn_0a3d,product_info,0.71,"Not a launch, but gives specs/pricing for an existing device.",b2c,hardware_iot,
+prn_0a4e,feature_release,0.62,"Adds an export module to an existing suite; no separate SKU, so a feature rather than a product.",b2b,software,Foo Suite export
 ```
 
 ---
@@ -100,7 +122,7 @@ prn_0a3d,product_info,0.71,"Not a launch, but gives specs/pricing for an existin
 | column          | required | meaning                                                                 |
 |-----------------|----------|-------------------------------------------------------------------------|
 | `id`            | yes      | article `_id` — join key into the `articles` / `labels` collections     |
-| `decision`      | no\*     | provisional label: `relevant` \| `irrelevant` \| `product_info`         |
+| `decision`      | no\*     | provisional label: `relevant` \| `feature_release` \| `irrelevant` \| `product_info` |
 | `llm_confidence`| no       | number in `0`–`1`; shown to the reviewer and used for ordering           |
 | `llm_rationale` | no       | the model's one-sentence reasoning — shown prominently to speed review   |
 | `audience`      | no       | suggested audience (`b2b`/`b2c`/`b2g`/`mixed`), prefilled               |
@@ -123,4 +145,8 @@ in Mongo.
   confirm; changing a radio = overwrite.
 - Each verified row is written to the `labels` collection with
   `source="llm_reviewed"`, `llm_label`, `human_agreed`, and `review_file`, so
-  you can later measure the LLM's accuracy and mine the disagreements.
+  you can later measure the LLM's accuracy and mine the disagreements. The
+  decision is stored as a single `launch_class` — `0` `irrelevant`, `1`
+  `relevant`, `2` `product_info`, `3` `feature_release` — which training
+  collapses to the binary head's class index (`1` stays `1`; `0`, `2` and `3`
+  all become `0`).

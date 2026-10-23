@@ -1,7 +1,7 @@
 <div id="card">
 {% if article %}
 <div class="spinner-overlay"><div class="spinner"></div></div>
-<div class="article">
+<div class="article{% if article.confident %} confident{% endif %}">
 	<h2>{{ article.header or "(no header)" }}</h2>
 	<div class="meta">
 		id: <code>{{ article._id }}</code>
@@ -11,6 +11,7 @@
 
 	{% if article.llm_label or article.llm_rationale %}
 	<div class="llm">
+		{% if article.confident %}<span class="badge">high confidence</span>{% endif %}
 		LLM suggestion: <span class="lbl">{{ article.llm_label.replace("_", " ") or "—" }}</span>
 		{% if article.llm_confidence %}<span class="conf">(confidence {{ article.llm_confidence }})</span>{% endif %}
 		{% if article.llm_rationale %}<p>{{ article.llm_rationale }}</p>{% endif %}
@@ -44,10 +45,13 @@
 	</form>
 </div>
 
-<div hx-swap-oob="innerHTML:#review-stats">
-	{% include "_review_stats.html" %}
-</div>
 {% else %}
 <div class="empty">Nothing left to review in this file. &middot; <a href="/review/{{ task.slug }}">back to files</a></div>
 {% endif %}
 </div>
+
+{% if request.headers.get("hx-request") %}
+<div hx-swap-oob="innerHTML:#review-stats">
+	{% include "_review_stats.html" %}
+</div>
+{% endif %}

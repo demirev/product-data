@@ -1,3 +1,16 @@
+x-article-scraper: &article-scraper
+  build: .
+  image: prn-pipeline
+  restart: unless-stopped
+  depends_on:
+    mongo:
+      condition: service_healthy
+  environment: &article-scraper-env
+    MONGO_URI: mongodb://mongo:27017
+    MONGO_DB: prn
+    SCRAPE_WORKERS: "4"
+  command: ["python", "py/scrape/scrape_prn.py", "--no-links", "--loop"]
+
 services:
   mongo:
     image: mongo:7
@@ -25,20 +38,33 @@ services:
       MONGO_DB: prn
     command: ["python", "py/scrape/scrape_prn.py", "--no-articles", "--loop"]
 
+  # Article fetching runs as N replicas of one definition (the `x-article-scraper`
+  # anchor at the top of this file). Each takes a disjoint hash bucket of the
+  # queue via SCRAPE_SHARD=K/N and fetches SCRAPE_WORKERS articles at a time.
+  # Both numbers are chosen from measurements in AGENT_NOTES.md: a fetch waits
+  # ~0.8s on the wire, so threads pay off, but parsing holds the GIL, which is
+  # why the concurrency is spread over processes rather than piled into one.
+  # To change N, edit every shard's K/N and add or remove replicas — every
+  # bucket must be owned by exactly one process or part of the queue stalls.
+  #
+  # Only shard 0 rolls up `companies` when its queue empties: the rollup is a
+  # full rebuild that reads the corpus, so one replica doing it is plenty and
+  # two doing it at once would be two identical rebuilds.
+  #
+  # Two shards of four is a deliberate eight in flight against one site: the
+  # box and the queue would take more, but a ban costs more than the days.
   article-scraper:
-    build: .
-    image: prn-pipeline
-    restart: unless-stopped
-    depends_on:
-      mongo:
-        condition: service_healthy
+    <<: *article-scraper
     environment:
-      MONGO_URI: mongodb://mongo:27017
-      MONGO_DB: prn
-    # Rolls up `companies` whenever its queue empties: this is the only service
-    # that adds scraped releases, so it is the only one whose idle moment means
-    # the derived collection is behind.
+      <<: *article-scraper-env
+      SCRAPE_SHARD: "0/2"
     command: ["python", "py/scrape/scrape_prn.py", "--no-links", "--loop", "--rollup-when-idle"]
+
+  article-scraper-1:
+    <<: *article-scraper
+    environment:
+      <<: *article-scraper-env
+      SCRAPE_SHARD: "1/2"
 
   classifier:
     build: .
@@ -51,6 +77,12 @@ services:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: prn
       MODEL_DIR: /models
+      # Torch otherwise spawns one thread per visible core and takes ~10 of
+      # the 14, starving the scraper shards' parsing. fp32 inference on this
+      # chip peaks at 8 threads (~10.6k articles/h vs 8.3k at 4; 12+ is
+      # slower, the E-cores drag the P-cores). Drop to 4 if the scraper
+      # shards need the room.
+      OMP_NUM_THREADS: "8"
       # Unset, each pass serves the newest run in /models/launch and keys its
       # predictions by that run's version. Set it to pin one, e.g.
       # MODEL_VERSION: distilbert-finetuned-20260819232201
@@ -71,6 +103,7 @@ services:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: prn
       MODEL_DIR: /models
+      OMP_NUM_THREADS: "4"
       # As above: newest run in /models/ai unless pinned.
     volumes:
       - models:/models:ro
@@ -124,6 +157,33 @@ services:
     volumes:
       - enrich_data:/data/enrich
     command: ["python", "py/enrich.py", "--loop"]
+
+  # Read-only browser over what the pipeline produced: the product releases the
+  # launch model called relevant, joined to their companies. Serves the built
+  # Vue SPA and its JSON API from one process on 8080.
+  #
+  # It owns a denormalized read model (`fe_releases`, `fe_companies`, `fe_meta`)
+  # that it rebuilds on startup and every ten minutes, so a page view is one
+  # indexed query rather than a join across three collections. That cache is
+  # derived and can be dropped at any time. Its image is built from fe/, with
+  # the repo root as context, and carries no model runtime.
+  web:
+    build:
+      context: .
+      dockerfile: fe/Dockerfile
+    image: prn-web
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: prn
+      # Set in .env to mark false positives from the release cards; with it
+      # unset the app is read-only.
+      EXPLORER_LABELER: ${EXPLORER_LABELER:-}
+    ports:
+      - "8080:8080"
 
   labeler:
     build: .
