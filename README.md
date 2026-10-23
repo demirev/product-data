@@ -529,10 +529,12 @@ prediction's `class_probabilities` is indexed by.
   button sends the article to `ai_label_skips` with `reason="no_product"` and
   keeps it out of the training set.
 
-The AI card also offers an optional **launch** dropdown when the article has no
-launch label yet. Those labels are written with `source="ai_side"`, never
-overwrite an existing label, and carry the AI sampler's `sample_method`, so they
-can be filtered out of base-rate estimates.
+Each card also offers an optional dropdown for the other task when that task has
+not yet labeled or skipped the article: a **launch** call on the AI card, an **AI
+product** call on the launch card. Those labels are written with
+`source="ai_side"` or `source="launch_side"`, never overwrite an existing
+decision, and carry the card's `sample_method`, so they can be filtered out of
+base-rate estimates.
 
 ### Review LLM-suggested labels
 

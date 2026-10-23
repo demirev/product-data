@@ -1,8 +1,9 @@
 reviewed {{ review_stats.reviewed }} / {{ review_stats.total }}{% if review_stats.agreement is not none %} &middot; agreement {{ review_stats.agreement }}%{% endif %}
 {% if review_stats.confident %}
 &middot; <button class="btn accept" type="button"
-	hx-post="/review/{{ task.slug }}/accept" hx-vals='{"file": {{ file|tojson }}}'
+	hx-post="/review/{{ task.slug }}/accept" hx-vals='{"file": {{ file|tojson }}, "order": {{ order|tojson }}}'
 	hx-target="#card" hx-swap="outerHTML" hx-indicator="#card" hx-disabled-elt="this"
 	hx-confirm="Accept {{ review_stats.confident }} row(s) with LLM confidence of {{ review_stats.threshold }} or more as the LLM called them, without reviewing?">accept {{ review_stats.confident }} &ge; {{ review_stats.threshold }}</button>
 {% endif %}
+&middot; confidence {% if order == "desc" %}<a class="nav" href="?order=asc">&uarr; low first</a> &middot; <strong>&darr; high first</strong>{% else %}<strong>&uarr; low first</strong> &middot; <a class="nav" href="?order=desc">&darr; high first</a>{% endif %}
 &middot; <a class="nav" href="/review/{{ task.slug }}">all files</a>

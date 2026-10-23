@@ -190,8 +190,8 @@ the rubric in [`../labels-for-review/README.md`](../labels-for-review/README.md)
 Fill it if you are confident; it pre-fills a dropdown so the human can confirm
 both calls in one pass. It is stored separately from the labels produced by the
 launch labeler proper, and never overwrites an existing one. Leave it blank when
-unsure, and for articles already in `labels`: the dropdown is shown only for
-articles without a launch label.
+unsure, and for articles already in `labels` or `label_skips`: the dropdown is
+shown only for articles the launch task has not decided.
 
 **Output rules.** Emit one valid CSV with a header row, written to this folder as
 `<batch-name>.csv`. Use the exact column names below; one row per article; never

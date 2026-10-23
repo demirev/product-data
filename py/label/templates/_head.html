@@ -1,6 +1,6 @@
 <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 <style>
-	body { font-family: -apple-system, system-ui, sans-serif; max-width: 920px; margin: 1.5rem auto; padding: 0 1rem; color: #222; }
+	body { font-family: -apple-system, system-ui, sans-serif; max-width: 1280px; margin: 1.5rem auto; padding: 0 1rem; color: #222; }
 	header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; margin-bottom: 1rem; }
 	header h1 { font-size: 1.1rem; margin: 0; }
 	header .nav { font-size: 0.85rem; }
@@ -9,10 +9,16 @@
 	details.rubric summary { cursor: pointer; font-weight: 600; }
 	details.rubric ul { margin: 0.4rem 0; padding-left: 1.2rem; }
 	details.rubric .tiebreaker { background: #fff3cd; padding: 0.4rem 0.6rem; border-radius: 4px; margin: 0.4rem 0; }
-	.article { border: 1px solid #ddd; border-radius: 6px; padding: 1rem 1.2rem; }
+	.article { border: 1px solid #ddd; border-radius: 6px; padding: 1rem 1.2rem; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1.2rem; align-items: start; }
+	/* Controls stay in view while the page scrolls. */
+	.article > form { position: sticky; top: 1rem; margin-top: 0; }
+	@media (max-width: 800px) {
+		.article { grid-template-columns: 1fr; }
+		.article > form { position: static; }
+	}
 	.article h2 { margin-top: 0; font-size: 1.05rem; }
 	.meta { font-size: 0.8rem; color: #888; margin-bottom: 0.8rem; }
-	.body { max-height: 380px; overflow-y: auto; white-space: pre-wrap; font-size: 0.92rem; line-height: 1.45; background: #fcfcfc; padding: 0.7rem; border: 1px solid #eee; border-radius: 4px; }
+	.body { max-height: 70vh; overflow-y: auto; white-space: pre-wrap; font-size: 0.92rem; line-height: 1.45; background: #fcfcfc; padding: 0.7rem; border: 1px solid #eee; border-radius: 4px; }
 	.llm { background: #eef6ff; border: 1px solid #c3d9f0; border-radius: 6px; padding: 0.6rem 0.9rem; margin-bottom: 0.8rem; font-size: 0.9rem; }
 	.llm .lbl { font-weight: 600; text-transform: capitalize; }
 	.llm .conf { color: #557; }

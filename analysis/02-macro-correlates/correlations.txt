@@ -1,0 +1,189 @@
+Quarterly YoY changes, 2012-01-01 to 2026-04-01. r = Pearson; p = Newey-West (4 lags); q = BH within sample x series.
+Lag k > 0: macro leads releases by k quarters.
+
+== Full sample == contemporaneous
+Key: <label>
+                       label r_All releases r_Product launches r_Launch share
+                      <fctr>          <num>              <num>          <num>
+    Policy uncertainty (EPU)          -0.14              -0.06           0.25
+          Consumer sentiment           0.08               0.09           0.03
+ Financial conditions (NFCI)          -0.04               0.02           0.18
+                         VIX          -0.07              -0.01           0.19
+            Nasdaq Composite           0.21               0.16          -0.15
+      10-year Treasury yield           0.10               0.02          -0.24
+              Fed funds rate           0.01               0.03           0.05
+                         CPI          -0.04              -0.17          -0.41
+       Business applications           0.03               0.07           0.13
+   Investment in IP products           0.02              -0.14          -0.51
+   Core capital goods orders           0.24               0.09          -0.49
+           Real retail sales           0.11              -0.03          -0.42
+           Unemployment rate          -0.07               0.06           0.40
+            Nonfarm payrolls           0.00              -0.11          -0.35
+       Industrial production           0.14               0.00          -0.44
+                    Real GDP           0.06              -0.06          -0.38
+ q_bh_All releases q_bh_Product launches q_bh_Launch share
+             <num>                 <num>             <num>
+              0.36                  0.79              0.17
+              0.74                  0.79              0.87
+              0.90                  0.98              0.39
+              0.78                  0.98              0.39
+              0.36                  0.79              0.39
+              0.78                  0.98              0.22
+              0.90                  0.98              0.83
+              0.90                  0.74              0.03
+              0.90                  0.79              0.39
+              0.90                  0.79              0.00
+              0.36                  0.79              0.01
+              0.36                  0.98              0.00
+              0.74                  0.79              0.01
+              0.92                  0.74              0.02
+              0.36                  1.00              0.01
+              0.78                  0.79              0.00
+
+Lag with largest |r| (n at lag 0: 58 )
+           series                       label   lag     r     p
+           <fctr>                      <fctr> <int> <num> <num>
+     All releases          Consumer sentiment     2 -0.28 0.039
+     All releases       Business applications     1  0.27 0.000
+     All releases                    Real GDP     4 -0.25 0.000
+     All releases   Core capital goods orders     0  0.24 0.025
+     All releases            Nonfarm payrolls     2 -0.23 0.000
+     All releases       Industrial production    -2  0.22 0.009
+     All releases           Unemployment rate    -2 -0.22 0.001
+     All releases            Nasdaq Composite     0  0.21 0.113
+     All releases   Investment in IP products    -4  0.20 0.051
+     All releases           Real retail sales     1  0.20 0.000
+     All releases Financial conditions (NFCI)     3 -0.20 0.272
+     All releases    Policy uncertainty (EPU)    -2 -0.20 0.096
+     All releases                         VIX     2  0.19 0.153
+     All releases              Fed funds rate     4 -0.17 0.010
+     All releases      10-year Treasury yield    -3 -0.17 0.229
+     All releases                         CPI     4 -0.09 0.412
+ Product launches                    Real GDP     2 -0.29 0.000
+ Product launches                         VIX     2  0.28 0.020
+ Product launches      10-year Treasury yield    -3 -0.27 0.052
+ Product launches           Unemployment rate     2  0.25 0.000
+ Product launches       Business applications     1  0.25 0.002
+ Product launches          Consumer sentiment     2 -0.25 0.060
+ Product launches            Nonfarm payrolls     2 -0.24 0.000
+ Product launches    Policy uncertainty (EPU)    -2 -0.24 0.034
+ Product launches            Nasdaq Composite    -2  0.23 0.020
+ Product launches   Core capital goods orders     4 -0.20 0.212
+ Product launches                         CPI     0 -0.17 0.048
+ Product launches Financial conditions (NFCI)    -2 -0.17 0.179
+ Product launches           Real retail sales    -2  0.17 0.016
+ Product launches       Industrial production    -2  0.17 0.041
+ Product launches   Investment in IP products    -4  0.16 0.071
+ Product launches              Fed funds rate    -4 -0.15 0.176
+     Launch share       Business applications     4 -0.53 0.000
+     Launch share   Investment in IP products     0 -0.51 0.000
+     Launch share   Core capital goods orders     0 -0.49 0.002
+     Launch share           Real retail sales     2 -0.46 0.000
+     Launch share                         CPI    -1 -0.45 0.001
+     Launch share       Industrial production     0 -0.44 0.003
+     Launch share              Fed funds rate    -4 -0.43 0.000
+     Launch share            Nasdaq Composite    -4  0.43 0.005
+     Launch share Financial conditions (NFCI)     2  0.41 0.004
+     Launch share    Policy uncertainty (EPU)     2  0.41 0.001
+     Launch share           Unemployment rate     0  0.40 0.003
+     Launch share                    Real GDP     0 -0.38 0.000
+     Launch share            Nonfarm payrolls     4  0.36 0.000
+     Launch share      10-year Treasury yield    -2 -0.31 0.084
+     Launch share                         VIX     2  0.26 0.065
+     Launch share          Consumer sentiment    -3  0.19 0.278
+           series                       label   lag     r     p
+           <fctr>                      <fctr> <int> <num> <num>
+
+== Excl. 2020-21 == contemporaneous
+Key: <label>
+                       label r_All releases r_Product launches r_Launch share
+                      <fctr>          <num>              <num>          <num>
+    Policy uncertainty (EPU)          -0.13              -0.12           0.03
+          Consumer sentiment           0.09               0.13           0.13
+ Financial conditions (NFCI)           0.02               0.03           0.02
+                         VIX          -0.04              -0.05          -0.03
+            Nasdaq Composite           0.18               0.16          -0.06
+      10-year Treasury yield           0.09               0.05          -0.14
+              Fed funds rate           0.03               0.06           0.11
+                         CPI          -0.06              -0.15          -0.29
+       Business applications           0.07               0.18           0.37
+   Investment in IP products          -0.04              -0.15          -0.37
+   Core capital goods orders           0.23               0.13          -0.36
+           Real retail sales           0.03              -0.06          -0.32
+           Unemployment rate          -0.03               0.07           0.34
+            Nonfarm payrolls          -0.04              -0.14          -0.31
+       Industrial production           0.19               0.07          -0.41
+                    Real GDP           0.01              -0.05          -0.20
+ q_bh_All releases q_bh_Product launches q_bh_Launch share
+             <num>                 <num>             <num>
+              0.80                  0.71              0.91
+              0.80                  0.71              0.68
+              0.95                  0.85              0.91
+              0.90                  0.80              0.91
+              0.80                  0.71              0.89
+              0.90                  0.80              0.54
+              0.90                  0.77              0.65
+              0.90                  0.71              0.14
+              0.90                  0.71              0.05
+              0.90                  0.71              0.05
+              0.62                  0.77              0.10
+              0.90                  0.77              0.04
+              0.90                  0.80              0.05
+              0.90                  0.71              0.04
+              0.62                  0.77              0.05
+              0.95                  0.82              0.25
+
+Lag with largest |r| (n at lag 0: 50 )
+           series                       label   lag     r     p
+           <fctr>                      <fctr> <int> <num> <num>
+     All releases Financial conditions (NFCI)     3 -0.29 0.136
+     All releases          Consumer sentiment    -3  0.28 0.017
+     All releases      10-year Treasury yield    -4 -0.25 0.161
+     All releases                    Real GDP     4 -0.25 0.008
+     All releases       Industrial production    -1  0.24 0.047
+     All releases   Core capital goods orders     0  0.23 0.078
+     All releases   Investment in IP products     2  0.22 0.219
+     All releases                         VIX     2  0.21 0.164
+     All releases            Nonfarm payrolls     4 -0.19 0.002
+     All releases            Nasdaq Composite     0  0.18 0.232
+     All releases           Unemployment rate    -2 -0.17 0.025
+     All releases       Business applications    -1  0.17 0.053
+     All releases    Policy uncertainty (EPU)    -2 -0.17 0.242
+     All releases           Real retail sales    -2  0.15 0.200
+     All releases              Fed funds rate     4 -0.12 0.079
+     All releases                         CPI    -4 -0.12 0.424
+ Product launches      10-year Treasury yield    -3 -0.29 0.057
+ Product launches          Consumer sentiment    -3  0.29 0.007
+ Product launches                         VIX     2  0.29 0.019
+ Product launches                    Real GDP     4 -0.27 0.000
+ Product launches       Business applications    -1  0.24 0.018
+ Product launches    Policy uncertainty (EPU)    -2 -0.22 0.098
+ Product launches            Nasdaq Composite    -2  0.20 0.063
+ Product launches   Core capital goods orders     4 -0.19 0.323
+ Product launches           Unemployment rate    -2 -0.16 0.007
+ Product launches   Investment in IP products    -4  0.16 0.168
+ Product launches Financial conditions (NFCI)    -4  0.16 0.259
+ Product launches            Nonfarm payrolls     4 -0.16 0.056
+ Product launches                         CPI     0 -0.15 0.090
+ Product launches           Real retail sales     4 -0.14 0.256
+ Product launches       Industrial production     1  0.13 0.190
+ Product launches              Fed funds rate    -4 -0.13 0.137
+     Launch share       Business applications     4 -0.47 0.000
+     Launch share Financial conditions (NFCI)     3  0.46 0.003
+     Launch share    Policy uncertainty (EPU)     2  0.45 0.001
+     Launch share       Industrial production    -1 -0.44 0.002
+     Launch share           Unemployment rate    -1  0.40 0.001
+     Launch share   Investment in IP products     1 -0.39 0.035
+     Launch share                         VIX     4  0.39 0.001
+     Launch share   Core capital goods orders     0 -0.36 0.043
+     Launch share              Fed funds rate    -4 -0.35 0.000
+     Launch share            Nonfarm payrolls    -1 -0.33 0.001
+     Launch share           Real retail sales     0 -0.32 0.004
+     Launch share                         CPI    -1 -0.30 0.036
+     Launch share      10-year Treasury yield    -2 -0.27 0.088
+     Launch share            Nasdaq Composite    -3  0.21 0.306
+     Launch share                    Real GDP     0 -0.20 0.141
+     Launch share          Consumer sentiment     0  0.13 0.512
+           series                       label   lag     r     p
+           <fctr>                      <fctr> <int> <num> <num>
+

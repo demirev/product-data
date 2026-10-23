@@ -2,6 +2,7 @@
 {% if article %}
 <div class="spinner-overlay"><div class="spinner"></div></div>
 <div class="article">
+<div class="main">
 	<h2>{{ article.header or "(no header)" }}</h2>
 	<div class="meta">
 		id: <code>{{ article._id }}</code>
@@ -10,6 +11,7 @@
 		{% if article.sample_method %} &middot; drawn: {{ article.sample_method }}{% endif %}
 	</div>
 	<div class="body">{{ article.body }}</div>
+</div>
 
 	<form hx-post="/label/{{ task.slug }}" hx-target="#card" hx-swap="outerHTML"
 		hx-indicator="#card" hx-disabled-elt="find button">

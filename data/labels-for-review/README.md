@@ -8,6 +8,12 @@ This file is self-contained: point an LLM at it (e.g. "read
 `data/labels-for-review/README.md` and label these articles") and it has
 everything needed to produce a review CSV. No other context required.
 
+This is the *first* of two independent questions asked about each press
+release. The second, "is this an AI product?", lives in
+[`../ai-labels-for-review/README.md`](../ai-labels-for-review/README.md) and is a
+separate classifier with its own labels. A batch here can optionally suggest that
+call too (the `ai_decision` column below).
+
 ---
 
 ## Getting the articles to label (data access)
@@ -99,6 +105,16 @@ the thing, and lower your confidence so the human looks closely.
 - `notes` — short free text, e.g. the name of the launched product (for a
   `feature_release`, the feature and the product it lands in)
 
+**Optional second call:** `ai_decision`, one of `ai`, `not_ai`, `ai_feature`,
+`ai_tooling`: whether the same release is about an *AI product*, per the brief in
+[`../ai-labels-for-review/README.md`](../ai-labels-for-review/README.md). Fill it
+if you are confident; it pre-fills a dropdown so the human can confirm both calls
+in one pass. It is stored separately from the labels produced by the AI labeler
+proper, and never overwrites an existing one. Leave it blank when unsure, when the
+release describes no product at all (that brief's `no_product`), and for articles
+already in `ai_labels` or `ai_label_skips`: the dropdown is shown only for
+articles the AI task has not decided.
+
 **Output rules.** Emit one valid CSV with a header row, written to this folder as
 `<batch-name>.csv`. Use the exact column names below; one row per article; never
 invent an `id`. Quote any field containing commas, quotes, or newlines
@@ -108,11 +124,11 @@ can, so the human reviews your least-certain calls first.
 Example:
 
 ```csv
-id,decision,llm_confidence,llm_rationale,audience,domain,notes
-prn_0a1b,relevant,0.93,"Names a new API customers can sign up for today.",b2b,software,Foo API
-prn_0a2c,irrelevant,0.88,"Series A funding announcement; no purchasable product.",,,
-prn_0a3d,product_info,0.71,"Not a launch, but gives specs/pricing for an existing device.",b2c,hardware_iot,
-prn_0a4e,feature_release,0.62,"Adds an export module to an existing suite; no separate SKU, so a feature rather than a product.",b2b,software,Foo Suite export
+id,decision,llm_confidence,llm_rationale,audience,domain,notes,ai_decision
+prn_0a1b,relevant,0.93,"Names a new API customers can sign up for today.",b2b,software,Foo API,ai
+prn_0a2c,irrelevant,0.88,"Series A funding announcement; no purchasable product.",,,,
+prn_0a3d,product_info,0.71,"Not a launch, but gives specs/pricing for an existing device.",b2c,hardware_iot,,not_ai
+prn_0a4e,feature_release,0.62,"Adds an export module to an existing suite; no separate SKU, so a feature rather than a product.",b2b,software,Foo Suite export,not_ai
 ```
 
 ---
@@ -128,6 +144,7 @@ prn_0a4e,feature_release,0.62,"Adds an export module to an existing suite; no se
 | `audience`      | no       | suggested audience (`b2b`/`b2c`/`b2g`/`mixed`), prefilled               |
 | `domain`        | no       | suggested domain, prefilled                                             |
 | `notes`         | no       | free-text notes, prefilled                                             |
+| `ai_decision`   | no       | optional AI call, prefills the secondary dropdown                       |
 | `header`        | no       | article title; if absent, joined from Mongo by `id`                     |
 | `body`          | no       | article text; if absent, joined from Mongo by `id`                      |
 
@@ -143,6 +160,11 @@ in Mongo.
   automatically and re-loading a file never double-serves a row.
 - The decision form arrives pre-filled from the CSV. Submitting unchanged =
   confirm; changing a radio = overwrite.
+- Cards with `llm_confidence` of 0.9 or more are shown in green. The **accept N
+  ≥ 0.9** button in the header records every pending row at that confidence as
+  the LLM called it, including its `ai_decision`, with `source="llm_accepted"`
+  and no `human_agreed`, so those rows stay out of the agreement rate.
+- A confirmed `ai_decision` is written to `ai_labels` with `source="launch_side"`.
 - Each verified row is written to the `labels` collection with
   `source="llm_reviewed"`, `llm_label`, `human_agreed`, and `review_file`, so
   you can later measure the LLM's accuracy and mine the disagreements. The

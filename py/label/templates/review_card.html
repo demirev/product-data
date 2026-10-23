@@ -2,6 +2,7 @@
 {% if article %}
 <div class="spinner-overlay"><div class="spinner"></div></div>
 <div class="article{% if article.confident %} confident{% endif %}">
+<div class="main">
 	<h2>{{ article.header or "(no header)" }}</h2>
 	<div class="meta">
 		id: <code>{{ article._id }}</code>
@@ -19,11 +20,13 @@
 	{% endif %}
 
 	<div class="body">{{ article.body or "(text unavailable)" }}</div>
+</div>
 
 	<form hx-post="/review/{{ task.slug }}/label" hx-target="#card" hx-swap="outerHTML"
 		hx-indicator="#card" hx-disabled-elt="find button">
 		<input type="hidden" name="article_id" value="{{ article._id }}" />
 		<input type="hidden" name="file" value="{{ file }}" />
+		<input type="hidden" name="order" value="{{ order }}" />
 		<input type="hidden" name="llm_label" value="{{ article.llm_label }}" />
 
 		{% include "_decision.html" %}
@@ -35,12 +38,12 @@
 				hx-post="/review/{{ task.slug }}/skip" hx-target="#card" hx-swap="outerHTML"
 				hx-indicator="#card" hx-disabled-elt="this"
 				hx-vals='{"reason": "{{ reason }}"}'
-				hx-include="[name='article_id'],[name='file'],[name='llm_label'],[name='cross_decision']">{{ name }}</button>
+				hx-include="[name='article_id'],[name='file'],[name='order'],[name='llm_label'],[name='cross_decision']">{{ name }}</button>
 			{% endfor %}
 			<button class="btn skip" type="button"
 				hx-post="/review/{{ task.slug }}/skip" hx-target="#card" hx-swap="outerHTML"
 				hx-indicator="#card" hx-disabled-elt="this"
-				hx-include="[name='article_id'],[name='file'],[name='llm_label'],[name='cross_decision']">Skip</button>
+				hx-include="[name='article_id'],[name='file'],[name='order'],[name='llm_label'],[name='cross_decision']">Skip</button>
 		</div>
 	</form>
 </div>

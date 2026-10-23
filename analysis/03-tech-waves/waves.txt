@@ -1,0 +1,41 @@
+Centred 12-month rate per 1,000 releases, 2011-01 to 2026-08. Half-peak window: first and last month at or above half the peak.
+
+Key: <series, group>
+       series  group peak_month  peak half_from half_to  last matches
+       <char> <char>     <char> <num>    <char>  <char> <num>   <int>
+      agentic    all    2026-02  26.8   2025-05 2026-02  26.8    3304
+      agentic launch    2026-02  82.2   2025-04 2026-02  82.2    1294
+           ai    all    2026-02 116.3   2023-11 2026-02 116.3   63509
+           ai launch    2026-02 272.5   2023-05 2026-02 272.5   18013
+     ai_broad    all    2026-02 170.1   2024-01 2026-02 170.1   87325
+     ai_broad launch    2026-02 366.1   2023-06 2026-02 366.1   23359
+       crypto    all    2022-02  31.0   2017-10 2026-02  17.4   28193
+       crypto launch    2022-04  73.4   2017-10 2024-09  28.5    6789
+ crypto_broad    all    2022-03  33.9   2017-11 2026-02  21.7   30988
+ crypto_broad launch    2022-04  78.8   2017-10 2025-10  35.7    7384
+        genai    all    2024-01  19.4   2023-03 2026-02  18.8    9106
+        genai launch    2023-12  66.0   2023-02 2026-02  57.8    3387
+  genai_broad    all    2026-02  23.0   2023-04 2026-02  23.0   10383
+  genai_broad launch    2026-02  74.4   2023-02 2026-02  74.4    3923
+       mobile    all    2012-10  16.6   2011-06 2021-12   4.0   23951
+       mobile launch    2012-09 110.3   2011-06 2018-06  20.7   13561
+
+Excluded releases by year (% of scraped, blacklisted senders already removed upstream)
+   year scraped market_research non_english   kept launch_kept
+ <char>   <int>           <num>       <num>  <int>       <int>
+   2011  147516             0.1         9.1 133966       12506
+   2012  163419             0.2         9.5 147497       13809
+   2013  147198             0.3         9.5 132799       12342
+   2014  172661             0.8         9.8 154473       14525
+   2015  182050             0.9        16.8 149872       14987
+   2016  156859             1.0        16.9 128728       13301
+   2017  177682             0.9        11.0 156464       16125
+   2018  178931             1.0        11.8 156097       16300
+   2019  179006             1.1        10.9 157424       16631
+   2020  181839             1.2        11.3 159125       17881
+   2021  206064             2.4        12.4 175455       18382
+   2022  199644             2.6        14.2 166062       16566
+   2023  202539             1.3        14.7 169995       18466
+   2024  183240             0.9        12.1 159418       16999
+   2025  179539             0.9        11.9 156567       17468
+   2026  138907             0.6        11.4 122169       14449

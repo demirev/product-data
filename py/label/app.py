@@ -160,6 +160,9 @@ TASKS = {
 		"review_dir": os.environ.get(
 			"LABEL_REVIEW_DIR", os.path.join(DATA_DIR, "labels-for-review")
 		),
+		# The mirror of the AI task's launch dropdown: an optional AI call on
+		# articles the AI labeler hasn't decided yet.
+		"cross_task": "ai",
 	},
 	"ai": {
 		"slug": "ai",
@@ -258,13 +261,14 @@ def build_label_doc(task, decision, form):
 def write_cross_label(task, article_id, form):
 	"""Record the optional second-task call offered on this task's card.
 
-	Uses $setOnInsert so a side-label can never overwrite a first-class one, and
-	tags provenance: these come from a sample biased towards the *other* task's
-	vocabulary, so they must be filterable out of base-rate estimates.
+	Does nothing if the other task already labeled or skipped the article, so a
+	side-label never overwrites a first-class one, and tags provenance: these come
+	from a sample biased towards the *other* task's vocabulary, so they must be
+	filterable out of base-rate estimates.
 	"""
 	decision = (form.get("cross_decision") or "").strip()
 	cross = TASKS.get(task.get("cross_task"))
-	if not decision or cross is None:
+	if not decision or cross is None or done_ids(cross, [article_id]):
 		return
 	# No metadata: the form's notes and selects were filled in about *this* task.
 	doc = build_label_doc(cross, int(decision), {})
@@ -279,9 +283,7 @@ def decorate_cross(task, article):
 	"""Flag whether the cross-task control should be shown for this article."""
 	cross = TASKS.get(task.get("cross_task"))
 	if article and cross is not None:
-		article["cross_missing"] = get_db()[cross["labels"]].find_one(
-			{"_id": article["_id"]}, {"_id": 1}
-		) is None
+		article["cross_missing"] = not done_ids(cross, [article["_id"]])
 		article["cross_task"] = cross
 	return article
 
@@ -348,22 +350,29 @@ def review_article(task, row):
 	return article
 
 
-def review_context(task, file):
+def review_context(task, file, order="asc"):
 	rows = read_review_csv(task, file)
 	ids = [r["id"] for r in rows if r.get("id")]
 	done = done_ids(task, ids)
 	pending = [r for r in rows if r.get("id") and r["id"] not in done]
 
-	# Confident rows whose decision the app can record, as a label or a reasoned skip.
-	recordable = set(task["csv_decisions"]) | {reason for _, reason in task["extra_actions"]}
-	confident = []
+	confidence = {}
 	for r in pending:
 		try:
-			conf = float(r.get("llm_confidence") or 0)
+			confidence[r["id"]] = float(r.get("llm_confidence") or 0)
 		except ValueError:
-			continue
-		if conf >= ACCEPT_CONFIDENCE and r.get("decision", "").strip().lower() in recordable:
-			confident.append(r)
+			pass
+	# Rows with an unparseable confidence go last in either order.
+	sign = -1 if order == "desc" else 1
+	pending.sort(key=lambda r: (r["id"] not in confidence, sign * confidence.get(r["id"], 0)))
+
+	# Confident rows whose decision the app can record, as a label or a reasoned skip.
+	recordable = set(task["csv_decisions"]) | {reason for _, reason in task["extra_actions"]}
+	confident = [
+		r for r in pending
+		if confidence.get(r["id"], 0) >= ACCEPT_CONFIDENCE
+		and r.get("decision", "").strip().lower() in recordable
+	]
 
 	article = decorate_cross(task, review_article(task, pending[0]) if pending else None)
 	if article:
@@ -376,6 +385,7 @@ def review_context(task, file):
 	return {
 		"task": task,
 		"file": file,
+		"order": order,
 		"article": article,
 		"confident": confident,
 		"review_stats": {
@@ -388,8 +398,8 @@ def review_context(task, file):
 	}
 
 
-def render_review_card(request, task, file):
-	return templates.TemplateResponse(request, "review_card.html", review_context(task, file))
+def render_review_card(request, task, file, order):
+	return templates.TemplateResponse(request, "review_card.html", review_context(task, file, order))
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -458,9 +468,9 @@ def review_index(request: Request, task: str):
 
 
 @app.get("/review/{task}/{file}", response_class=HTMLResponse)
-def review_page(request: Request, task: str, file: str):
+def review_page(request: Request, task: str, file: str, order: str = "asc"):
 	task = get_task(task)
-	ctx = review_context(task, file)
+	ctx = review_context(task, file, order)
 	ctx["labeler"] = LABELER
 	return templates.TemplateResponse(request, "review_page.html", ctx)
 
@@ -481,7 +491,7 @@ async def review_label_post(request: Request, task: str):
 	doc["human_agreed"] = bool(llm_label) and task["csv_decisions"].get(llm_label) == decision
 	get_db()[task["labels"]].update_one({"_id": article_id}, {"$set": doc}, upsert=True)
 	write_cross_label(task, article_id, form)
-	return render_review_card(request, task, file)
+	return render_review_card(request, task, file, form.get("order", "asc"))
 
 
 @app.post("/review/{task}/skip", response_class=HTMLResponse)
@@ -506,7 +516,7 @@ async def review_skip_post(request: Request, task: str):
 		doc["human_agreed"] = llm_label == reason
 	get_db()[task["skips"]].update_one({"_id": article_id}, {"$set": doc}, upsert=True)
 	write_cross_label(task, article_id, form)
-	return render_review_card(request, task, file)
+	return render_review_card(request, task, file, form.get("order", "asc"))
 
 
 @app.post("/review/{task}/accept", response_class=HTMLResponse)
@@ -531,7 +541,7 @@ async def review_accept_post(request: Request, task: str):
 		suggested = cross and cross["csv_decisions"].get(row.get(f"{cross['slug']}_decision", "").strip().lower())
 		if suggested is not None:
 			write_cross_label(task, row["id"], {"cross_decision": str(suggested)})
-	return render_review_card(request, task, file)
+	return render_review_card(request, task, file, form.get("order", "asc"))
 
 
 # Declared last: this pattern would otherwise swallow /review and /card.
