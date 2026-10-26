@@ -1,4 +1,5 @@
-"""Monthly keyword shares for three technology waves (mobile apps, crypto, AI) -> CSVs.
+"""Monthly keyword shares for technology waves (mobile apps, cloud, SaaS, big data, IoT, 3D printing,
+wearables, VR/AR, metaverse, crypto, AI) -> CSVs.
 
 Text matched is the header plus the lede (first 1,000 characters of the body,
 trailing partial word dropped), whitespace-collapsed. All terms are case-insensitive
@@ -12,7 +13,7 @@ slug is in ANALYST_FIRMS. Launch flags come from the latest `launch` run, as in
 01-release-counts.
 
 Outputs:
-  monthly.csv   month, group (all|launch), series, n, senders, total (months with n = 0 omitted)
+  monthly.csv   month, group (all|launch), series, n, senders, total, total_senders (months with n = 0 omitted)
   terms.csv     month, group, series, term, n
   coverage.csv  month, scraped, market_research, non_english, kept
   senders.csv   senders with n >= 20 and report-header share >= 10%, and whether dropped
@@ -37,6 +38,60 @@ MOBILE = [
 	r"\bapp ?store\b",
 	r"\bgoogle play\b", r"\bplay store\b", r"\bandroid market\b",
 ]
+# Lookarounds on saas skip the inContact ticker (NASDAQ: SAAS) and Saas-Fee
+SAAS = [r"(?<!nasdaq: )(?<!nasdaq:)\bsaas\b(?!-fee)", r"\bsoftware[- ]as[- ]a[- ]service\b"]
+CLOUD = [
+	r"\bcloud[- ]computing\b", r"\bcloud[- ]based\b", r"\bcloud[- ]native\b",
+	r"\bcloud-(first|enabled|delivered|hosted|managed|connected|driven|centric|ready|powered|optimized|agnostic|neutral|only)\b",
+	*SAAS,
+	r"(?-i:\b(PaaS|IaaS|UCaaS|CCaaS|CPaaS|DRaaS)\b)", r"\b(platform|infrastructure)[- ]as[- ]a[- ]service\b",
+	r"\b(private|public|hybrid)[- ]clouds?\b", r"\bmulti-?clouds?\b",
+	r"\b(in|to|into|from|onto|on) the cloud\b",
+	r"\bcloud (services?|platforms?|solutions?|providers?|infrastructure|storage|security|applications?|apps?|software|hosting|offerings?|environments?|deployments?|workloads?|migrations?|adoption|technolog(y|ies)|data|backup|erp|communications|contact cent(er|re)|telephony|gaming)\b",
+	r"\bkubernetes\b", r"\bserverless\b",
+]
+# Bare cloud skips places, weather and idioms, colours and a few product names
+CLOUD_BROAD = CLOUD + [
+	r"\bamazon web services\b", r"(?-i:\bAWS\b)(?! ?(spectrum|band|truepower|-[0-9]|licen))", r"\b(microsoft|windows) azure\b",
+	r"(?<!st\. )(?<!st )(?<!saint[- ])(?<!point )(?<!word )(?<!vapor )(?<!vapour )(?<!mushroom )(?<!dark )(?<!storm )(?<!dust )(?<!smoke )(?<!ash )(?<!funnel )(?<!hologram )(?<!white )\bcloud\b(?! ?(9|nine)\b| of (uncertainty|smoke|dust|suspicion|doubt|gas|ash|debris|steam)| (cover|seeding|forests?|atlas|bread|pillows?|kitchens?|music|chamber|peak energy)\b)",
+]
+BIG_DATA = [
+	r"\bbig[- ]data\b", r"\bhadoop\b", r"\bnosql\b", r"\bmapreduce\b", r"\bhbase\b",
+	r"\bapache (spark|hive|kafka|flink|cassandra)\b", r"\bspark (sql|streaming)\b",
+]
+# Case-sensitive IoT also catches IIoT, AIoT, XIoT and IoMT; lowercase "iot" is the Samsara ticker
+IOT = [
+	r"internet[- ]of[- ](\w+ )?things", r"internet of everything",
+	r"(?-i:\b(A|I|X)?IoM?T\b)", r"industrial internet\b",
+]
+IOT_BROAD = IOT + [
+	r"\bm2m\b", r"machine[- ]to[- ]machine", r"\b(zigbee|z-wave|lorawan|lpwan|sigfox|nb-iot|lte-m)\b",
+	r"\bsmart[- ]homes?\b", r"\bhome automation\b",
+]
+PRINTING_3D = [
+	r"\b(3|three)[- ]?(d|dimensional)[- ]?print", r"\badditive(ly)?[- ]manufactur", r"bio-?print",
+	r"stereolithograph", r"\b(direct metal|selective) laser (sintering|melting)\b|\bdmls\b", r"\bbinder[- ]?jet",
+]
+WEARABLES = [
+	r"(?<!digital )(?<!virtual )(?<!nft )\bwearables\b",
+	r"\bwearable[- ](devices?|tech|technolog(y|ies)|sensors?|biosensors?|computers?|computing|electronics?|cameras?|health|fitness|trackers?|monitors?|monitoring|patch(es)?|displays?|robots?|robotics|exoskeletons?|solutions?|systems?|products?|market|industry|brand|platforms?|apps?|data|ultrasound|injectors?|therapy|therapeutics?|smart\w*|ai|medical)\b",
+	r"\b(smart|connected|intelligent|ai|iot|medical|health|fitness|consumer|biometric|bluetooth|wireless)[- ]wearable\b",
+	r"smart ?watch(es)?\b", r"\b(fitness|activity|wearable) trackers?\b|\b(fitness|activity) bands?\b",
+	r"\bapple watch", r"android wear\b|\bwear ?os\b", r"galaxy (gear|watch)", r"hearables?\b", r"smart ?rings?\b|\boura\b",
+]
+WEARABLES_BROAD = WEARABLES + [r"\bwearable\b(?![- ](art|blankets?|sculptures?|luxury|pieces|keepsakes?|plush)\b)"]
+# Bare AR, VR and XR only in pairs ("AR/VR") or before a technology noun; "hologram augmented reality" is WiMi boilerplate
+XR = [
+	r"virtual[- ]realit(y|ies)", r"(?<!hologram )augmented[- ]realit(y|ies)", r"mixed[- ]realit(y|ies)", r"extended[- ]realit(y|ies)",
+	r"spatial computing", r"head[- ]mounted displays?",
+	r"(?-i:(?<![\w.&/-])(AR|VR|XR|MR) ?(/|and|&|or) ?(AR|VR|XR|MR)\b)",
+	r"(?-i:(?<![\w.&/:-])(?<!: )(?<!, )(AR|VR|XR)\b)[- ](glasses|goggles|headsets?|hmds?|helmets?|apps?|applications?|experiences?|technolog(y|ies)|tech\b|content|platforms?|games?|gaming|filters?|lens(es)?|try-?ons?|solutions?|devices?|hardware|capabilit(y|ies)|powered|enabled|based|ready|displays?|wearables?|training|simulations?|simulators?|environments?|industry|market|space|developers?|development|studios?|software|arcades?|therapy|films?|videos?|cameras?|controllers?|worlds?|ecosystem|production|stage|optics)\b",
+	r"\boculus (rift|go|quest|vr|touch|store|headsets?)\b|\b(facebook|instagram|whatsapp|messenger),? (and )?oculus\b",
+	r"\bhtc vive\b|\bvive (pro|focus|cosmos|xr|flow|tracker|headset)", r"hololens", r"\bmagic leap\b",
+	r"\bapple vision pro\b|\bvision pro headset", r"\b(meta|oculus) quest\b", r"\b(playstation|ps) ?vr2?\b|\bgear vr\b",
+	r"google glass\b", r"google cardboard", r"smart ?glasses|\bai glasses\b|\bray-?ban meta\b|\bmeta ray-?ban\b",
+]
+METAVERSE = [r"metavers"]
 CRYPTO = [
 	r"bitcoin", r"blockchain", r"crypto-?currenc", r"\bcrypto[- ]?assets?\b",
 	r"ethereum", r"stablecoin", r"\bnfts?\b", r"non-fungible",
@@ -78,16 +133,21 @@ AI_BROAD = AI + GENAI_EXTRA + [
 	r"\bcognitive computing\b", r"\bnlp\b",
 ]
 SERIES = {
-	"mobile": MOBILE, "crypto_broad": CRYPTO_BROAD, "crypto": CRYPTO,
+	"mobile": MOBILE, "cloud_broad": CLOUD_BROAD, "cloud": CLOUD, "saas": SAAS, "big_data": BIG_DATA,
+	"iot_broad": IOT_BROAD, "iot": IOT, "printing_3d": PRINTING_3D,
+	"wearables_broad": WEARABLES_BROAD, "wearables": WEARABLES, "xr": XR, "metaverse": METAVERSE,
+	"crypto_broad": CRYPTO_BROAD, "crypto": CRYPTO,
 	"ai_broad": AI_BROAD, "ai": AI, "genai_broad": GENAI + GENAI_EXTRA, "genai": GENAI, "agentic": AGENTIC,
 }
 # Each series' terms are a subset of its parent's, so it is searched only when the parent matched
-PARENT = {"crypto": "crypto_broad", "ai": "ai_broad", "genai_broad": "ai_broad", "genai": "genai_broad", "agentic": "ai"}
+PARENT = {
+	"cloud": "cloud_broad", "saas": "cloud", "iot": "iot_broad", "wearables": "wearables_broad",
+	"crypto": "crypto_broad", "ai": "ai_broad", "genai_broad": "ai_broad", "genai": "genai_broad", "agentic": "ai"}
 COMBINED = {s: re.compile("|".join(terms), re.I) for s, terms in SERIES.items()}
 TERMS = {s: [(t, re.compile(t, re.I)) for t in terms] for s, terms in SERIES.items()}
 
 MARKET_REPORT_HEADER = r"market (size|share|report|research|analysis|forecast|outlook|trends|growth|to (reach|grow|witness|surpass|hit|be worth))|\bcagr\b|\bforecast (period|to 20)|market (is|will) (expected|projected|anticipated|estimated)"
-ANALYST_FIRMS = re.compile(r"^/news/(frost-%26(amp%3b)?-sullivan|idtechex|dell%27oro-group|abi-research|parks-associates|strategy-analytics|omdia|qks-group|forrester|lux-research|mintel|counterpoint|gartner|juniper-research)")
+ANALYST_FIRMS = re.compile(r"^/news/(frost-%26(amp%3b)?-sullivan|idtechex|dell%27oro-group|abi-research|parks-associates|strategy-analytics|omdia|qks-group|forrester|lux-research|mintel|counterpoint|gartner|juniper-research|smartech-(analysis|markets-publishing))")
 
 def match(d):
 	"""English flag and matched terms per series for one release; runs in the worker pool."""
@@ -146,6 +206,7 @@ for i, (d, english, hits) in enumerate(pool.imap(match, db["articles"].aggregate
 	groups = ("all", "launch") if d["_id"] in launch else ("all",)
 	for g in groups:
 		n[month, g, "_total"] += 1
+		who[month, g, "_total"].add(d.get("uploader_link"))
 	for s, hit in hits.items():
 		for g in groups:
 			n[month, g, s] += 1
@@ -166,10 +227,10 @@ pool.close()
 out.mkdir(parents=True, exist_ok=True)
 with open(out / "monthly.csv", "w", newline="") as f:
 	w = csv.writer(f)
-	w.writerow(["month", "group", "series", "n", "senders", "total"])
+	w.writerow(["month", "group", "series", "n", "senders", "total", "total_senders"])
 	for (m, g, s), k in sorted(n.items()):
 		if s != "_total":
-			w.writerow([m, g, s, k, len(who[m, g, s]), n[m, g, "_total"]])
+			w.writerow([m, g, s, k, len(who[m, g, s]), n[m, g, "_total"], len(who[m, g, "_total"])])
 with open(out / "terms.csv", "w", newline="") as f:
 	w = csv.writer(f)
 	w.writerow(["month", "group", "series", "term", "n"])

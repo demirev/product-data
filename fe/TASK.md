@@ -10,7 +10,7 @@ Three tabs: **Overview**, **Products**, **Companies**.
 
 ## 1. Context you need before starting
 
-Read the root [`README.md`](../README.md) first — at minimum the intro table,
+Read the root [`REFERENCE.md`](../REFERENCE.md) first — at minimum the intro table,
 "Four labels per task, two classes per head", "Company data", and "External
 enrichment". The short version:
 
