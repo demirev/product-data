@@ -203,7 +203,10 @@ def load_labeled_data(task="launch"):
 	db = get_db()
 	collection, field = TASKS[task]["labels"], TASKS[task]["field"]
 	collapse = TASKS[task]["collapse"]
-	labels = list(db[collection].find({}, {"_id": 1, field: 1}))
+	# Hold-out articles (marked per review file in the labeler) never train any task.
+	holdout = db["holdout_files"].distinct("ids")
+	labels = list(db[collection].find({"_id": {"$nin": holdout}}, {"_id": 1, field: 1}))
+	print(f"Excluded {db[collection].count_documents({'_id': {'$in': holdout}})} hold-out label(s)")
 	ids = [l["_id"] for l in labels]
 	articles = {
 		a["_id"]: a
@@ -524,12 +527,14 @@ def classify_press_releases(
 	batch_size=16,
 	overwrite=False,
 	require_relevant_from=None,
+	ids=None,
 ):
 	"""
 	Classify scraped press releases and write predictions to Mongo.
 
 	Resume semantics: articles that already have a prediction for `model_version`
-	are skipped unless `overwrite=True`.
+	are skipped unless `overwrite=True`. `ids` restricts the pass to those
+	articles, e.g. the hold-out set.
 
 	`require_relevant_from` restricts the candidate set to articles a previous
 	model_version already called positive — the staged pass that lets the AI
@@ -551,6 +556,8 @@ def classify_press_releases(
 	# Both joins ride the unique (article_id, model_version) index on predictions,
 	# and $limit: 1 keeps the joined array to one document per article.
 	pipeline = [{"$match": {"status": "scraped"}}]
+	if ids is not None:
+		pipeline[0]["$match"]["_id"] = {"$in": ids}
 
 	if require_relevant_from:
 		print(f"Gating on articles called positive by {require_relevant_from}.")
@@ -704,6 +711,12 @@ if __name__ == "__main__":
 		help="Reclassify articles even if predictions exist for this model_version",
 		default=False
 	)
+	parser.add_argument(
+		"--holdout",
+		action="store_true",
+		help="Classify only the hold-out articles, for compare_runs.py (classify mode)",
+		default=False
+	)
 
 	args = parser.parse_args()
 	print(f"Task: {args.task}; model root: {os.path.join(MODEL_ROOT, args.task)}")
@@ -754,6 +767,7 @@ if __name__ == "__main__":
 				batch_size=args.batch_size,
 				overwrite=args.overwrite,
 				require_relevant_from=gate,
+				ids=get_db()["holdout_files"].distinct("ids") if args.holdout else None,
 			)
 
 			if not args.loop:
@@ -790,6 +804,11 @@ if __name__ == "__main__":
 		)
 		print("Evaluation results:")
 		print(json.dumps(record["metrics"], indent=2))
+
+		# Score the hold-out set now, so the run can be compared before it serves.
+		holdout = get_db()["holdout_files"].distinct("ids")
+		if holdout:
+			classify_press_releases(version, run_dir, batch_size=args.batch_size, ids=holdout)
 
 	print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 	print("Done")

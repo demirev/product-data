@@ -1,4 +1,4 @@
-reviewed {{ review_stats.reviewed }} / {{ review_stats.total }}{% if review_stats.agreement is not none %} &middot; agreement {{ review_stats.agreement }}%{% endif %}
+{% if holdout %}<span class="badge holdout">hold-out</span>{% endif %}reviewed {{ review_stats.reviewed }} / {{ review_stats.total }}{% if review_stats.agreement is not none %} &middot; agreement {{ review_stats.agreement }}%{% endif %}
 {% if review_stats.confident %}
 &middot; <button class="btn accept" type="button"
 	hx-post="/review/{{ task.slug }}/accept" hx-vals='{"file": {{ file|tojson }}, "order": {{ order|tojson }}}'

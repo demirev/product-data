@@ -18,6 +18,12 @@ Outputs:
   coverage.csv  month, scraped, market_research, non_english, kept
   senders.csv   senders with n >= 20 and report-header share >= 10%, and whether dropped
   samples.csv   up to 10 random matched headers per series and year
+  companies_<launch version>.csv
+                series, uploader_link, first_month, last_month, n, first_launch_month, n_launch
+  releases_<launch version>.csv
+                uploader_link, year, family, n: launch releases per sender and calendar year, in all
+                (family _total) and matching each technology family (a series with its broad parent
+                and narrower children, named by its broadest series)
 
     python keywords.py [SAMPLE_SIZE OUT_DIR]
 """
@@ -191,6 +197,8 @@ pipeline = [{"$match": eligible}] + ([{"$sample": {"size": sample}}] if sample e
 
 n, terms, coverage = Counter(), Counter(), Counter()
 who = defaultdict(set)
+firms = {}
+releases = Counter()
 seen, samples = Counter(), defaultdict(list)
 rng = random.Random(0)
 for i, (d, english, hits) in enumerate(pool.imap(match, db["articles"].aggregate(pipeline, allowDiskUse=True), chunksize=200)):
@@ -204,6 +212,10 @@ for i, (d, english, hits) in enumerate(pool.imap(match, db["articles"].aggregate
 		continue
 	coverage[month, "kept"] += 1
 	groups = ("all", "launch") if d["_id"] in launch else ("all",)
+	if "launch" in groups:
+		# A family's broadest series is the one hit without a parent
+		for fam in ["_total", *(s for s in hits if s not in PARENT)]:
+			releases[d.get("uploader_link"), month[:4], fam] += 1
 	for g in groups:
 		n[month, g, "_total"] += 1
 		who[month, g, "_total"].add(d.get("uploader_link"))
@@ -213,6 +225,10 @@ for i, (d, english, hits) in enumerate(pool.imap(match, db["articles"].aggregate
 			who[month, g, s].add(d.get("uploader_link"))
 			for t in hit:
 				terms[month, g, s, t] += 1
+		f = firms.setdefault((s, d.get("uploader_link")), [month, month, 0, None, 0])
+		f[0], f[1], f[2] = min(f[0], month), max(f[1], month), f[2] + 1
+		if "launch" in groups:
+			f[3], f[4] = min(f[3] or month, month), f[4] + 1
 		key = (s, month[:4])
 		seen[key] += 1
 		row = [s, month, d["_id"] in launch, re.sub(r"\s+", " ", d.get("header") or "").strip(), "; ".join(hit), d["_id"]]
@@ -249,3 +265,11 @@ with open(out / "samples.csv", "w", newline="") as f:
 	w.writerow(["series", "month", "launch", "header", "terms", "id"])
 	for k in sorted(samples):
 		w.writerows(sorted(samples[k], key=lambda r: r[1]))
+with open(out / f"companies_{version}.csv", "w", newline="") as f:
+	w = csv.writer(f)
+	w.writerow(["series", "uploader_link", "first_month", "last_month", "n", "first_launch_month", "n_launch"])
+	w.writerows([*k, *v] for k, v in sorted(firms.items(), key=lambda kv: (kv[0][0], kv[1][0], kv[0][1] or "")))
+with open(out / f"releases_{version}.csv", "w", newline="") as f:
+	w = csv.writer(f)
+	w.writerow(["uploader_link", "year", "family", "n"])
+	w.writerows([*k, v] for k, v in sorted(releases.items(), key=lambda kv: (kv[0][0] or "", kv[0][1], kv[0][2])))

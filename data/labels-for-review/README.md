@@ -84,6 +84,10 @@ a discrete thing. When genuinely torn between `relevant` and a negative, prefer
 the negative and lower your confidence (the human will catch under-calls during
 review).
 
+- New entertainment content (music albums, TV shows, art pieces, video games) is
+  not a product: `irrelevant`.
+- New real estate developments are not products: `irrelevant`.
+
 **`relevant` or `feature_release`?** The line between a product and a feature is
 genuinely blurred, and there is no rule that settles every case — **use your best
 judgement, and say which way you leaned in the `llm_rationale`.** As a guide: a
@@ -165,6 +169,11 @@ in Mongo.
   the LLM called it, including its `ai_decision`, with `source="llm_accepted"`
   and no `human_agreed`, so those rows stay out of the agreement rate.
 - A confirmed `ai_decision` is written to `ai_labels` with `source="launch_side"`.
+- **mark hold-out** on the file list sets a whole file aside as a test set: its
+  articles are kept out of training for both tasks and are used only by
+  `py/classify/compare_runs.py holdout` to compare trained runs. Bulk accept is
+  disabled on a hold-out file, so every label in it is human-verified. The file's
+  ids are recorded when it is marked; re-mark it after adding rows.
 - Each verified row is written to the `labels` collection with
   `source="llm_reviewed"`, `llm_label`, `human_agreed`, and `review_file`, so
   you can later measure the LLM's accuracy and mine the disagreements. The

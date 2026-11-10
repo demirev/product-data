@@ -78,3 +78,20 @@ ggplot(smooth[method == "12-month trailing mean"], aes(date, index, colour = ser
 	scale_colour_manual(values = cols) +
 	labs(x = NULL, y = "Index (base = 100), 12-month trailing mean", caption = index_caption)
 ggsave("smooth_12m.png", width = 9, height = 5, dpi = 150)
+
+ai <- d[, .(date,
+	`AI products per month` = as.numeric(ai),
+	`Share of product launches (%)` = 100 * ai / launch,
+	`Share of all releases (%)` = 100 * ai / total
+)]
+ai <- melt(ai, id.vars = "date", variable.name = "measure", value.name = "v")
+ggplot(ai, aes(date, v)) +
+	chatgpt +
+	geom_line(linewidth = 0.5, colour = "#7c3aed") +
+	facet_wrap(~measure, ncol = 1, scales = "free_y") +
+	scale_y_continuous(labels = scales::comma, limits = c(0, NA)) +
+	labs(x = NULL, y = NULL, caption = sprintf(
+		"PRNewswire, monthly by publication date. AI products: positive under launch model %s\nand AI model %s. Dashed line: Nov 2022.",
+		d$launch_version[1], d$ai_version[1]
+	))
+ggsave("ai.png", width = 9, height = 7, dpi = 150)

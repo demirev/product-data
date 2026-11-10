@@ -1,5 +1,6 @@
 NOTES.md
 AGENT_NOTES.md
+analysis/07-need-space/PLAN.md
 .claude/
 
 # Byte-compiled / optimized / DLL files
@@ -153,3 +154,11 @@ Thumbs.db
 .Rproj.user
 .Rhistory
 temp/
+
+# Large analysis outputs, rebuilt by their scripts
+analysis/03-tech-waves/companies_*.csv
+analysis/04-wave-map/map.html
+analysis/03-tech-waves/releases_*.csv
+analysis/04-wave-map/geo.csv
+analysis/06-ai-launchers/firm_months_*.csv.gz
+analysis/07-need-space/emb/

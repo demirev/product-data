@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Technology Wave Map</title>
+<script src="https://unpkg.com/deck.gl@9.1.15/dist.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<style>
+:root {
+	color-scheme: light;
+	--surface: #fcfcfb;
+	--panel: rgba(252, 252, 251, 0.93);
+	--border: rgba(11, 11, 11, 0.12);
+	--text: #0b0b0b;
+	--text-2: #52514e;
+	--text-3: #7a7974;
+	--settled: #8d8b84;
+	--fresh: #eb6834;
+	--control: #f0efec;
+	--land: #ebe9e3;
+	--line: #d3d1c9;
+	--over: #eb6834;
+	--under: #2a78d6;
+	--even: #a9a7a0;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		color-scheme: dark;
+		--surface: #1a1a19;
+		--panel: rgba(26, 26, 25, 0.92);
+		--border: rgba(240, 239, 236, 0.14);
+		--text: #f0efec;
+		--text-2: #c3c2b7;
+		--text-3: #94938b;
+		--settled: #7d7c75;
+		--fresh: #ff7a3d;
+		--control: #2b2b29;
+		--land: #2a2a27;
+		--line: #43423e;
+		--over: #d95926;
+		--under: #3987e5;
+		--even: #75746d;
+	}
+}
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--surface: #1a1a19;
+	--panel: rgba(26, 26, 25, 0.92);
+	--border: rgba(240, 239, 236, 0.14);
+	--text: #f0efec;
+	--text-2: #c3c2b7;
+	--text-3: #94938b;
+	--settled: #7d7c75;
+	--fresh: #ff7a3d;
+	--control: #2b2b29;
+	--land: #2a2a27;
+	--line: #43423e;
+	--over: #d95926;
+	--under: #3987e5;
+	--even: #75746d;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--surface); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+#map { position: absolute; inset: 0; }
+.panel { position: absolute; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; backdrop-filter: blur(6px); }
+#top { top: 16px; left: 16px; width: 340px; max-width: calc(100% - 32px); }
+#bottom { left: 16px; right: 16px; bottom: 16px; max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 15px; font-weight: 600; margin: 0 0 10px; }
+label.row { display: flex; align-items: center; gap: 8px; margin: 8px 0; color: var(--text-2); }
+select, button { font: inherit; color: var(--text); background: var(--control); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+button { cursor: pointer; }
+label.row select { flex: 1; min-width: 0; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; color: var(--text-2); padding: 4px 10px; }
+.seg button[aria-pressed="true"] { background: var(--control); color: var(--text); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; color: var(--text-2); font-size: 12px; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; background: var(--c); }
+.scale { margin-top: 10px; font-size: 12px; color: var(--text-2); }
+.scale .bar { height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--under), var(--even), var(--over)); }
+.scale .ticks { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; margin-top: 2px; }
+#rankpanel { top: 44px; right: 16px; width: 300px; padding: 10px 12px; }
+#ranks { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+#ranks caption { text-align: left; color: var(--text-2); padding-bottom: 2px; }
+#ranks td { padding: 1px 0; }
+#ranks td + td { text-align: right; padding-left: 10px; color: var(--text-2); }
+#ranks td:last-child { color: var(--text); font-weight: 600; }
+#stats { margin-top: 8px; color: var(--text); font-variant-numeric: tabular-nums; }
+.controls { display: flex; align-items: center; gap: 12px; }
+#play { width: 40px; height: 40px; border-radius: 50%; padding: 0; font-size: 16px; flex: none; }
+#month { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 92px; flex: none; }
+#slider { flex: 1; min-width: 0; accent-color: var(--fresh); }
+#spark { display: block; width: 100%; height: 44px; margin-top: 8px; cursor: crosshair; }
+#readout { display: flex; justify-content: space-between; gap: 12px; color: var(--text-3); font-size: 12px; margin-top: 4px; }
+#readout span:first-child { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.deck-tooltip { font: 12px/1.45 system-ui, sans-serif !important; background: var(--panel) !important; color: var(--text) !important; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px !important; max-width: 280px; }
+.deck-tooltip b { font-weight: 600; }
+.deck-tooltip .muted { color: var(--text-2); }
+#credit { position: absolute; right: 16px; top: 16px; font-size: 11px; color: var(--text-3); background: var(--panel); padding: 2px 6px; border-radius: 4px; }
+#credit a { color: inherit; }
+@media (max-width: 640px) {
+	#top { width: auto; right: 16px; padding: 10px 12px; }
+	#credit { top: auto; bottom: 150px; }
+	#rankpanel { display: none; }
+	#month { font-size: 18px; min-width: 76px; }
+	#readout span:last-child { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="top" class="panel">
+	<h1>Where each technology wave's companies are</h1>
+	<label class="row">Wave <select id="series"></select></label>
+	<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:var(--text-2)">
+		<div class="seg" role="group" aria-label="Markers">
+			<button data-mode="cities" aria-pressed="true">Cities</button><button data-mode="companies" aria-pressed="false">Companies</button><button data-mode="contrast" aria-pressed="false">Contrast</button>
+		</div>
+		<label id="glow" style="display:flex;gap:6px;align-items:center">Glow
+			<select id="fade"><option value="6">6 mo</option><option value="12" selected>12 mo</option><option value="24">24 mo</option></select>
+		</label>
+	</div>
+	<div class="legend" id="legend-glow">
+		<span style="--c:var(--fresh)" id="legend-fresh">entered in the last 12 months</span>
+		<span style="--c:var(--settled)">earlier</span>
+		<span id="legend-size" style="--c:transparent">circle area: companies</span>
+	</div>
+	<div class="scale" id="legend-contrast" hidden>
+		Companies here relative to expected from the place's share of companies with other product releases; circle area: expected companies
+		<div class="bar"></div>
+		<div class="ticks"><span>¼×</span><span>½×</span><span>1×</span><span>2×</span><span>4×</span></div>
+	</div>
+	<div id="stats"></div>
+</div>
+<div id="bottom" class="panel">
+	<div class="controls">
+		<button id="play" aria-label="Play">▶</button>
+		<div id="month"></div>
+		<input id="slider" type="range" min="0" step="0.01" aria-label="Month">
+		<select id="speed" aria-label="Speed"><option value="3">0.5×</option><option value="6" selected>1×</option><option value="12">2×</option><option value="24">4×</option></select>
+	</div>
+	<svg id="spark" preserveAspectRatio="none" aria-label="New companies per month"></svg>
+	<div id="readout"><span id="hover"></span><span id="note"></span></div>
+</div>
+<div id="rankpanel" class="panel" hidden><table id="ranks"></table></div>
+<div id="credit"><a href="https://www.naturalearthdata.com/">Natural Earth</a> · <a href="https://www.geonames.org/">GeoNames</a></div>
+<script>
+const DATA = /*__DATA__*/null;
+const $ = id => document.getElementById(id);
+const MONTHS = DATA.months, PLACES = DATA.places, FIRMS = DATA.firms;
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const fmtMonth = i => { const m = MONTHS[Math.min(MONTHS.length - 1, Math.floor(i))]; return `${MONTH_NAMES[+m.slice(5) - 1]} ${m.slice(0, 4)}`; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
+const MAX_CITY_PX = Math.min(40, window.innerWidth / 25);
+// Pseudo-count in (observed + K) / (expected + K), so a city with a handful of companies stays near 1×
+const K = 5;
+
+let S, key, mode = "cities", fade = 12, t = 0, playing = false, last = null, zoom = 1.5, theme, colors;
+let firmPos = null, firmPosZoom = null, LAND = null;
+
+function readColors() {
+	const css = getComputedStyle(document.documentElement);
+	const rgb = v => { const h = css.getPropertyValue(v).trim().slice(1); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+	theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+	colors = {fresh: rgb("--fresh"), settled: rgb("--settled"), surface: rgb("--surface"), land: rgb("--land"), line: rgb("--line"),
+		over: rgb("--over"), under: rgb("--under"), even: rgb("--even")};
+}
+
+function selectSeries(k) {
+	key = k;
+	S = DATA.series[k];
+	const entries = S.entries;
+	// Rank within city by entry order: early entrants sit at the centre of the jitter spiral
+	const seen = new Map(), perMonth = new Array(MONTHS.length).fill(0);
+	S.rank = new Int32Array(entries.length);
+	entries.forEach((e, i) => {
+		const p = FIRMS[e[0]][1];
+		S.rank[i] = seen.get(p) || 0;
+		seen.set(p, S.rank[i] + 1);
+		perMonth[e[1]]++;
+	});
+	S.perMonth = perMonth;
+	S.k = MAX_CITY_PX / Math.sqrt(Math.max(1, ...seen.values()));
+	S.base = new Map(DATA.baseline[S.family] || []);
+	S.baseTotal = [...S.base.values()].reduce((a, b) => a + b, 0);
+	S.ke = MAX_CITY_PX / Math.sqrt(Math.max(1, entries.length * Math.max(0, ...S.base.values()) / S.baseTotal));
+	firmPos = null;
+	drawSpark();
+	render();
+}
+
+function activeCount() {
+	let lo = 0, hi = S.entries.length;
+	while (lo < hi) { const mid = (lo + hi) >> 1; if (S.entries[mid][1] <= t) lo = mid + 1; else hi = mid; }
+	return lo;
+}
+
+function mix(a, b, w) { return [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * w)); }
+
+function cityCounts(n) {
+	const cum = new Map(), fresh = new Map();
+	for (let i = 0; i < n; i++) {
+		const e = S.entries[i], p = FIRMS[e[0]][1], age = t - e[1];
+		cum.set(p, (cum.get(p) || 0) + 1);
+		if (age < fade) fresh.set(p, (fresh.get(p) || 0) + 1 - age / fade);
+	}
+	return {cum, fresh};
+}
+
+// Cities with companies in the wave, plus those where at least one was expected
+function contrastItems(n, cum) {
+	const items = [];
+	for (const p of new Set([...cum.keys(), ...S.base.keys()])) {
+		const c = cum.get(p) || 0, e = n * (S.base.get(p) || 0) / S.baseTotal;
+		if (c > 0 || e >= 1) items.push({p, c, e, ratio: (c + K) / (e + K)});
+	}
+	return items.sort((a, b) => b.e - a.e);
+}
+
+function ratioColor(ratio) {
+	const v = Math.max(-1, Math.min(1, Math.log2(ratio) / 2));
+	return v < 0 ? mix(colors.even, colors.under, -v) : mix(colors.even, colors.over, v);
+}
+
+const fmtRatio = r => r >= 1 ? `${r.toFixed(1)}×` : `${r.toFixed(2)}×`;
+
+function ensureFirmPositions() {
+	if (firmPos && Math.abs(firmPosZoom - zoom) < 0.05) return;
+	firmPosZoom = zoom;
+	firmPos = new Float64Array(S.entries.length * 2);
+	const degPerPx = 360 / (512 * Math.pow(2, zoom));
+	S.entries.forEach((e, i) => {
+		const pl = PLACES[FIRMS[e[0]][1]], r = 2.4 * Math.sqrt(S.rank[i]), a = S.rank[i] * 2.39996;
+		firmPos[2 * i] = pl[0] + r * Math.cos(a) * degPerPx;
+		firmPos[2 * i + 1] = pl[1] + r * Math.sin(a) * degPerPx * Math.cos(pl[1] * Math.PI / 180);
+	});
+}
+
+function basemap() {
+	if (!LAND) return [];
+	return [
+		new deck.GeoJsonLayer({id: `land-${theme}`, data: LAND, filled: true, stroked: false, wrapLongitude: true, getFillColor: colors.land}),
+		new deck.PathLayer({id: `borders-${theme}`, data: LAND.borders, getPath: d => d, getColor: colors.line, widthUnits: "pixels", getWidth: 0.8}),
+	];
+}
+
+function render() {
+	const n = activeCount(), zs = Math.pow(2, (zoom - 1.5) * 0.5);
+	let layer, summary;
+	$("rankpanel").hidden = mode !== "contrast";
+	if (mode === "contrast") {
+		const items = contrastItems(n, cityCounts(n).cum);
+		layer = new deck.ScatterplotLayer({
+			id: "contrast", data: items, pickable: true, radiusUnits: "pixels", stroked: true,
+			getPosition: d => PLACES[d.p], getRadius: d => Math.max(2.5, S.ke * Math.sqrt(d.e) * zs),
+			getFillColor: d => [...ratioColor(d.ratio), 225], getLineColor: [...colors.surface, 210], lineWidthMinPixels: 1,
+		});
+		const top = items.filter(d => d.c >= 10).sort((a, b) => b.ratio - a.ratio).slice(0, 6);
+		$("ranks").innerHTML = `<caption>Most over-represented, 10+ companies</caption>`
+			+ top.map(d => `<tr><td>${esc(PLACES[d.p][2])}</td><td>${d.c.toLocaleString()} vs ${d.e.toFixed(0)}</td><td>${fmtRatio(d.ratio)}</td></tr>`).join("");
+		summary = `${n.toLocaleString()} companies`;
+	} else if (mode === "cities") {
+		const {cum, fresh} = cityCounts(n), items = [];
+		[...cum.entries()].sort((a, b) => b[1] - a[1]).forEach(([p, c]) => {
+			items.push({p, c, r: S.k * Math.sqrt(c), fresh: false});
+			const f = fresh.get(p);
+			if (f > 0.02) items.push({p, c, r: S.k * Math.sqrt(f), fresh: true});
+		});
+		const cities = cum.size;
+		layer = new deck.ScatterplotLayer({
+			id: "cities", data: items, pickable: true, radiusUnits: "pixels", stroked: true,
+			getPosition: d => PLACES[d.p], getRadius: d => Math.max(d.fresh ? 1.5 : 2.5, d.r * zs),
+			getFillColor: d => d.fresh ? [...colors.fresh, 235] : [...colors.settled, 150],
+			getLineColor: d => d.fresh ? [0, 0, 0, 0] : [...colors.surface, 210], lineWidthMinPixels: 1,
+		});
+		summary = `${n.toLocaleString()} companies in ${cities.toLocaleString()} cities`;
+	} else {
+		ensureFirmPositions();
+		layer = new deck.ScatterplotLayer({
+			id: "firms", data: {length: n}, pickable: true, radiusUnits: "pixels",
+			getPosition: (_, {index}) => [firmPos[2 * index], firmPos[2 * index + 1]],
+			getRadius: (_, {index}) => 1.8 * (1 + 1.6 * Math.max(0, 1 - (t - S.entries[index][1]) / 1.5)),
+			getFillColor: (_, {index}) => [...mix(colors.fresh, colors.settled, Math.min(1, Math.max(0, (t - S.entries[index][1]) / fade))), 220],
+			updateTriggers: {getPosition: [key, firmPosZoom], getRadius: [key, t], getFillColor: [key, t, fade, theme]},
+		});
+		summary = `${n.toLocaleString()} companies`;
+	}
+	$("stats").textContent = `${summary} by ${fmtMonth(t)}`;
+	$("note").textContent = `${S.unplaced.toLocaleString()} companies not placed · source ${DATA.source}`;
+	$("month").textContent = fmtMonth(t);
+	$("slider").value = t;
+	updateSparkCursor();
+	map.setProps({layers: [...basemap(), layer]});
+}
+
+function tooltip({object, index, layer}) {
+	if (!layer || index < 0) return null;
+	if (layer.id === "firms") {
+		const e = S.entries[index], f = FIRMS[e[0]];
+		return {html: `<b>${esc(f[0])}</b><br><span class="muted">${esc(PLACES[f[1]][2])}</span><br>first matching release ${fmtMonth(e[1])} · ${e[2]} in total`};
+	}
+	if (!object) return null;
+	if (layer.id === "contrast") {
+		const share = 100 * (S.base.get(object.p) || 0) / S.baseTotal;
+		return {html: `<b>${esc(PLACES[object.p][2])}</b><br>${object.c.toLocaleString()} companies, ${object.e.toFixed(1)} expected<br>`
+			+ `<span class="muted">${share.toFixed(2)}% of companies with other product releases are here</span><br>ratio ${fmtRatio(object.ratio)}`};
+	}
+	const n = activeCount(), recent = [];
+	let fresh = 0;
+	for (let i = n - 1; i >= 0; i--) {
+		const e = S.entries[i];
+		if (FIRMS[e[0]][1] !== object.p) continue;
+		if (t - e[1] < fade) fresh++;
+		if (recent.length < 6) recent.push(`${esc(FIRMS[e[0]][0])} <span class="muted">${fmtMonth(e[1])}</span>`);
+	}
+	return {html: `<b>${esc(PLACES[object.p][2])}</b><br>${object.c.toLocaleString()} companies, ${fresh.toLocaleString()} in the last ${fade} months<br><span class="muted">Latest:</span><br>${recent.join("<br>")}`};
+}
+
+function drawSpark() {
+	const svg = $("spark"), max = Math.max(1, ...S.perMonth), M = MONTHS.length;
+	svg.setAttribute("viewBox", `0 0 ${M} 100`);
+	svg.innerHTML = S.perMonth.map((v, i) => `<rect x="${i + 0.1}" width="0.8" y="${100 - 96 * v / max}" height="${96 * v / max}" data-i="${i}"></rect>`).join("")
+		+ `<line id="cursor" y1="0" y2="100" stroke-width="2" vector-effect="non-scaling-stroke"></line>`;
+	updateSparkCursor();
+}
+
+function updateSparkCursor() {
+	const svg = $("spark");
+	svg.querySelectorAll("rect").forEach(r => {
+		const i = +r.dataset.i;
+		r.setAttribute("fill", i > t ? "var(--border)" : t - i < fade ? "var(--fresh)" : "var(--settled)");
+	});
+	const c = $("cursor");
+	if (c) { c.setAttribute("x1", t + 0.5); c.setAttribute("x2", t + 0.5); c.setAttribute("stroke", "var(--text)"); }
+}
+
+function sparkMonth(ev) {
+	const box = $("spark").getBoundingClientRect();
+	return Math.max(0, Math.min(MONTHS.length - 1, Math.floor((ev.clientX - box.left) / box.width * MONTHS.length)));
+}
+
+function setPlaying(on) {
+	playing = on;
+	$("play").textContent = on ? "❚❚" : "▶";
+	$("play").setAttribute("aria-label", on ? "Pause" : "Play");
+	if (on) { if (t >= MONTHS.length - 1) t = 0; last = null; requestAnimationFrame(tick); }
+}
+
+function tick(now) {
+	if (!playing) return;
+	if (last !== null) t = Math.min(MONTHS.length - 1, t + (now - last) / 1000 * +$("speed").value);
+	last = now;
+	render();
+	if (t >= MONTHS.length - 1) setPlaying(false);
+	else requestAnimationFrame(tick);
+}
+
+readColors();
+const width = window.innerWidth;
+zoom = Math.max(0, Math.log2(width / 512) + 0.3);
+const map = new deck.Deck({
+	parent: $("map"),
+	views: new deck.MapView({repeat: true}),
+	initialViewState: {longitude: width < 640 ? -40 : -20, latitude: 30, zoom, minZoom: 0, maxZoom: 14},
+	controller: true,
+	getTooltip: tooltip,
+	onViewStateChange: ({viewState}) => { zoom = viewState.zoom; if (!playing) render(); },
+});
+
+const sel = $("series");
+Object.entries(DATA.series).forEach(([k, s]) => sel.add(new Option(`${s.label} (${s.entries.length.toLocaleString()})`, k)));
+sel.value = "genai";
+sel.onchange = () => selectSeries(sel.value);
+$("slider").max = MONTHS.length - 1;
+$("slider").oninput = e => { t = +e.target.value; setPlaying(false); render(); };
+$("play").onclick = () => setPlaying(!playing);
+$("fade").onchange = e => { fade = +e.target.value; $("legend-fresh").textContent = `entered in the last ${fade} months`; render(); };
+const modeButtons = document.querySelectorAll("[data-mode]");
+modeButtons.forEach(b => b.onclick = () => {
+	mode = b.dataset.mode;
+	modeButtons.forEach(o => o.setAttribute("aria-pressed", o === b));
+	$("legend-size").style.display = mode === "cities" ? "" : "none";
+	$("legend-glow").hidden = $("glow").hidden = mode === "contrast";
+	$("legend-contrast").hidden = mode !== "contrast";
+	render();
+});
+const spark = $("spark");
+let dragging = false;
+spark.onpointerdown = ev => { dragging = true; spark.setPointerCapture(ev.pointerId); setPlaying(false); t = sparkMonth(ev); render(); };
+spark.onpointermove = ev => {
+	const i = sparkMonth(ev);
+	$("hover").textContent = `${fmtMonth(i)}: ${S.perMonth[i].toLocaleString()} new companies`;
+	if (dragging) { t = i; render(); }
+};
+spark.onpointerup = () => { dragging = false; };
+spark.onpointerleave = () => { $("hover").textContent = ""; };
+document.addEventListener("keydown", ev => {
+	if (ev.target.tagName === "SELECT" || ev.target.tagName === "INPUT") return;
+	if (ev.code === "Space") { ev.preventDefault(); setPlaying(!playing); }
+	if (ev.code === "ArrowRight" || ev.code === "ArrowLeft") { setPlaying(false); t = Math.max(0, Math.min(MONTHS.length - 1, Math.round(t) + (ev.code === "ArrowRight" ? 1 : -1))); render(); }
+});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { readColors(); render(); });
+t = MONTHS.length - 1;
+selectSeries(sel.value);
+Promise.all(["world-atlas@2.0.2/countries-50m.json", "us-atlas@3.0.1/states-10m.json"].map(f => fetch(`https://cdn.jsdelivr.net/npm/${f}`).then(r => r.json())))
+	.then(([world, us]) => {
+		// Antarctica (010) only adds a stretched band at Mercator's edge
+		LAND = topojson.feature(world, world.objects.countries);
+		LAND.features = LAND.features.filter(f => f.id !== "010");
+		LAND.borders = [
+			...topojson.mesh(world, world.objects.countries, (a, b) => a !== b).coordinates,
+			...topojson.mesh(us, us.objects.states, (a, b) => a !== b).coordinates,
+		];
+		render();
+	});
+</script>
+</body>
+</html>

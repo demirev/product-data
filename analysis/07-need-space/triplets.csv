@@ -1,0 +1,301 @@
+id,a,b,c,d_ab,d_ac
+t000,maintain energy and cognitive function as they age,continue care for ongoing medical conditions while abroad,navigate to destinations while walking or cycling,0.5435,0.6624
+t001,document patient encounters in patient records,evaluate clinical outcomes and spending across patient populations,highlight shared meeting content for participants,0.5855,0.535
+t002,improve English reading and language skills,understand others' communication preferences,manage personal credit standing,0.5927,0.659
+t003,meet cybersecurity requirements for mission-critical systems,meet SEC cybersecurity reporting and disclosure obligations,assess organizational systems for exploitable security weaknesses,0.3634,0.4122
+t004,keep restaurant order processing running,prioritize consumer finance accounts for collection action,maintain patient care during operational disruptions,0.613,0.5401
+t005,keep game controllers charged between play sessions,monitor vessel systems from onboard control stations,keep an iPhone powered away from outlets,0.6512,0.4668
+t006,identify unreported wrong-site surgeries in patient records,complete patient encounter records and related care orders,document behavioral health client sessions,0.5358,0.6759
+t007,prepare restaurant promotions for local events,"manage occasional gas, bloating, and digestive discomfort",attract prospective customers to a business,0.6275,0.4767
+t008,play sports and racing games through physical interaction,play basketball through jumping and directional changes,maintain mobility and balance as they age,0.4988,0.6178
+t009,enrich DNA libraries for targeted sequencing,prepare labeled image datasets for veterinary research,modernize legacy business applications,0.6012,0.6708
+t010,detect mobile-device movement for interactive functions,travel with family members to destinations,create a customer-facing mobile service,0.6631,0.4486
+t011,feed dogs a nutritionally complete meal,feed pets a nutritionally appropriate diet,support pets' health through their diets,0.1179,0.2608
+t012,organize game controllers and game cards,connect remote business equipment with business systems,manage invoices and payments with trading partners,0.5491,0.6099
+t013,"integrate AI into university teaching, research, and operations",protect sensitive data during AI processing,integrate AI into business operations,0.554,0.2722
+t014,verify loan application information for lending decisions,use market and consumer insights to guide business decisions,ensure data use complies with privacy and consent requirements,0.5365,0.514
+t015,fulfill financial regulatory reporting obligations,report an organization's compliance with regulatory obligations,maintain regulatory compliance for Salesforce environments,0.177,0.3434
+t016,track policy developments affecting an organization's interests,monitor areas of interest for security threats,assess API bug-detection capability,0.4852,0.641
+t017,drive across off-road terrain for recreation,manage vehicle ride and handling across changing road conditions,train autonomous vehicles to make safe decisions in rare road situations,0.3753,0.5702
+t018,prevent unauthorized disclosure of sensitive business data,protect business data and restore it after disruption,remove excessive employee access to organizational data,0.2969,0.3381
+t019,manage blood glucose during everyday diabetes care,choose appropriate care for health conditions,assess inflammatory bowel disease activity in patients,0.4769,0.6323
+t020,assess the financial value of intellectual property portfolios,assess candidates' job-related knowledge and skills,issue and manage investments backed by real-world assets,0.5453,0.6152
+t021,assess candidates' job-related knowledge and skills,assess candidates for open positions,evaluate job applicants and select candidates to advance,0.2104,0.3201
+t022,"assess contract terms, obligations, and risks",assess healthcare interactions for protocol and compliance adherence,manage business contracts throughout their lifecycle,0.5123,0.3175
+t023,measure advertising's contribution to sales,help prospective customers discover a company's products and services,measure marketing campaign contributions to conversions,0.5166,0.2882
+t024,plan and book a trip around personal interests,organize travel activities into a trip itinerary,engage in daily physical activity,0.3052,0.6142
+t025,produce proteins for biological research and therapies,preserve genetic material from endangered wildlife,prepare legal documents for personal or business matters,0.4767,0.6173
+t026,manage nephrology patient rounds and follow-up care,prepare for and follow up on client meetings,fulfill health plans' requests for patient medical records,0.4763,0.5091
+t027,listen to audio and make phone calls during daily activities,manage AI use across an organization,stay in contact with family across long distances,0.635,0.3904
+t028,spot early signs of health problems in cats,find paid work using healthcare expertise,identify customers likely to churn or convert,0.6958,0.704
+t029,create professional video content for creative projects,draft complete written content for a specific purpose,help prospective customers discover a company's products and services,0.4265,0.6429
+t030,grade students' and candidates' assessment responses,organize documents for legal cases,identify bullying incidents among students on campus,0.6321,0.6109
+t031,relieve bodily needs during a spaceflight,recruit qualified healthcare travelers for open assignments,position an iPad for hands-free viewing,0.6419,0.6715
+t032,supply electricity to off-grid industrial sites,power outdoor equipment where electrical outlets are unavailable,bake cakes and other foods at home,0.3057,0.6195
+t033,develop network-connected embedded applications,manage data for transaction-processing applications,build and maintain software applications,0.5415,0.4739
+t034,measure a patient's heart function,assess and stabilize patients during cardiac emergencies,map and guide cardiac ablation for atrial fibrillation,0.4109,0.4004
+t035,manage personal credit standing,manage costs of cloud data workloads,prioritize consumer finance accounts for collection action,0.6408,0.4978
+t036,maintain cooling in heavy-duty truck engines,operate data center power and cooling infrastructure,optimize production at industrial plants,0.4657,0.6122
+t037,protect privileged credentials from future decryption attacks,preserve genetic material from endangered wildlife,place spread bets and CFD trades away from a desk,0.6221,0.7294
+t038,practice and understand concepts they are learning,earn rewards on travel spending,retain students at a martial arts school,0.6473,0.6134
+t039,meet pregnancy-related nutritional needs while following a vegan diet,maintain mobility and balance as they age,attract and engage current and prospective veterinary clients,0.7059,0.7738
+t040,monitor activity around a home while away,document events around their vehicle while driving or parked,monitor areas of interest for security threats,0.4403,0.3633
+t041,analyze veterinary procedure images for research and teaching,prove the authenticity of photos and videos,assess healthcare interactions for protocol and compliance adherence,0.4233,0.5705
+t042,prepare recycled PET for food-contact manufacturing,clean up household spills and messes,prepare custom textile artwork for production,0.6695,0.6478
+t043,resolve insurance coverage questions for agency teams,align internal policies and controls with regulatory obligations,understand and use employee health benefits,0.5919,0.5102
+t044,manage safety and compliance for commercial vehicle fleets,assess the condition and service needs of deployed equipment,maintain regulatory compliance for Salesforce environments,0.5471,0.516
+t045,improve skin tone and appearance,understand how lifestyle choices may shape future appearance,make sustained changes to personal health behaviors,0.5265,0.5535
+t046,eat meals while seated in business dining areas,get companionship while spending time at a desk,complete work and creative tasks while away from a desk,0.4867,0.6463
+t047,eat a protein-rich breakfast,satisfy hunger between meals with savory food,enrich DNA libraries for targeted sequencing,0.4306,0.7514
+t048,charge multiple personal electronics together,coordinate teams across geographically dispersed work sites,store and protect outdoor equipment and valuables,0.6112,0.5163
+t049,develop solutions for financial trading challenges,manage financial exposure across agricultural commodity trades,assess business clients' insurance and financing gaps,0.3804,0.52
+t050,analyze legal documents for client matters,prepare bids for public procurement contracts,develop and maintain software projects,0.5362,0.5777
+t051,build and maintain software applications,maintain data for legacy business applications,manage communications network and service operations,0.3988,0.5072
+t052,manage consumer electronics resale operations,manage beverage inventory and replenishment,process corporate action events for securities markets,0.4747,0.6266
+t053,place spread bets and CFD trades away from a desk,manage clinical AI applications in health-system workflows,process insurance submissions for underwriting decisions,0.6575,0.6508
+t054,match candidates to job skill requirements,assess candidates for open positions,prepare salespeople to sell changing company offerings,0.2519,0.5876
+t055,raise concerns with government officials,identify and contact decision-makers behind commercial property ownership,prepare legal documents for personal or business matters,0.5309,0.6134
+t056,get restful sleep while away from home,play demanding games in a portable setting,complete work tasks away from a desk,0.6104,0.4809
+t057,find inspiration to reinvent cultural traditions,travel around town independently,repurpose sentimental materials into useful personal items,0.6492,0.4847
+t058,manage costs of cloud data workloads,manage an organization's cloud spending,report suspected waste in government spending,0.2258,0.5754
+t059,fulfill health plans' requests for patient medical records,obtain refills for ongoing prescriptions,find paid work using healthcare expertise,0.4497,0.4889
+t060,engage in daily physical activity,maintain focus and energy during demanding daily activities,travel around town independently,0.424,0.5241
+t061,create and refine visual designs,build recognition for graphic design work,prepare legal documents for personal or business matters,0.3837,0.588
+t062,stabilize images captured by mobile-device cameras,protect an iPad from damage during use and transport,create stop-motion videos,0.5969,0.505
+t063,plan the structure of a marketing website,create branded content for business audiences,make strategic decisions about therapy development and commercialization,0.479,0.5734
+t064,provide vehicle occupants access to regional broadcasts,secure employee access to company resources across work locations,share personal videos with selected friends and family,0.5638,0.573
+t065,complete everyday walks despite fatigue or discomfort,maintain focus and energy during demanding daily activities,get restful sleep while away from home,0.4301,0.5037
+t066,experience a thrilling ride after dark,plan flights around airport facilities and aviation services,enjoy distinctive alcoholic drinks,0.6633,0.527
+t067,identify vehicles for tolling and road-use charging,verify identity to access corporate resources,manage an organization's cloud spending,0.6812,0.6585
+t068,maintain account and contact records for sales work,book service appointments for dealership customers,manage a sales team's prospecting work,0.4846,0.4166
+t069,prioritize consumer finance accounts for collection action,govern AI agents across regulated enterprise operations,approve delegated signatures for digital transactions,0.6834,0.6635
+t070,track tools and work-in-progress across manufacturing workstations,maintain accurate records of enterprise IT assets and relationships,monitor pollution and environmental conditions across multiple sites,0.5213,0.4926
+t071,tailor customer experiences to individual behavior,attract prospective customers to a business,reflect on personal experiences and clarify what they want,0.6131,0.4835
+t072,align internal policies and controls with regulatory obligations,track policy developments affecting an organization's interests,assess the legitimacy of customer transactions,0.4751,0.6073
+t073,evaluate thermal behavior of electronic product designs,seal industrial connections exposed to extreme temperatures,design bicycle frames that meet performance and safety requirements,0.5485,0.5857
+t074,inspect pipes in explosive industrial environments,seal industrial connections exposed to extreme temperatures,inspect infrastructure for damage and anomalies,0.4351,0.4457
+t075,measure managed services performance,manage enterprise IT infrastructure and deployments,maintain accurate records of enterprise IT assets and relationships,0.5628,0.6033
+t076,identify crop pests and water stress in fields,back up photos and videos during field work,locate and identify enemy assets in contested areas,0.6639,0.5996
+t077,manage an organization's cloud spending,administer customer loyalty programs and member rewards,identify and investigate cybersecurity threats to an organization,0.59,0.5807
+t078,demonstrate AI compliance to regulators,maintain regulatory compliance for Salesforce environments,meet privacy requirements for organizational AI use,0.3905,0.332
+t079,verify required components are present in products,verify loan application information for lending decisions,validate healthcare product concepts with decision-makers,0.5032,0.4274
+t080,carry personal belongings during leisure travel,resolve questions about a hotel before booking a stay,store and access work files while traveling,0.6377,0.3977
+t081,store photographs and video footage captured during shoots,watch movies and sports at home,create product visuals that meet brand and retailer requirements,0.5727,0.4922
+t082,invest in data centers and fiber networks,manage communications network and service operations,deploy AI solutions across enterprise operations,0.4346,0.5813
+t083,manage workforce needs as a company grows,hire employees for hourly positions,analyze client and firm data for wealth management decisions,0.4917,0.614
+t084,spend cryptocurrency on in-person purchases,earn cash back on everyday purchases,invest in early-stage crypto projects,0.4449,0.4321
+t085,understand customer experiences with a business,create presentations to communicate ideas to an audience,attract prospective customers to a business,0.6131,0.4394
+t086,assess commuter benefit use across employee locations,recruit qualified healthcare travelers for open assignments,monitor pollution and environmental conditions across multiple sites,0.6256,0.6
+t087,collect and process operational data in hazardous facilities,assess factory performance from operational data,investigate case evidence and account for findings,0.4136,0.6255
+t088,identify and prioritize security exposures across enterprise endpoints,assess organizational systems for exploitable security weaknesses,identify and investigate cybersecurity threats to an organization,0.3194,0.3592
+t089,maintain regulatory compliance for Salesforce environments,"use IBM mainframe, AS/400, and Unix systems remotely",fulfill financial regulatory reporting obligations,0.5758,0.3434
+t090,identify cardiac device patients needing clinical follow-up,identify ablation targets in patients with complex atrial fibrillation,maintain patient oxygen saturation during respiratory treatment,0.5365,0.5224
+t091,produce work deliverables from existing project materials,develop and maintain software projects,repurpose sentimental materials into useful personal items,0.4873,0.5055
+t092,provide emergency support to older adults living at home,manage challenges while completing physical therapy exercises at home,prepare telecom operations for autonomous decision-making,0.491,0.6744
+t093,write promotional messages that engage business customers,turn dealership sales inquiries into vehicle purchase appointments,find and cultivate prospective job candidates,0.5164,0.5601
+t094,govern machine identities and credentials across enterprise systems,verify identity to access corporate resources,manage AI use across an organization,0.3179,0.4937
+t095,manage and share drilling and subsurface data across oil and gas projects,"access mainframe, AS/400, and Unix systems remotely",assess factory performance from operational data,0.5565,0.6029
+t096,choose appropriate care for health conditions,assess patients and recommend appropriate treatment,document wound care patient visits,0.3298,0.4564
+t097,identify meaningful patterns among people with mental health disorders,redesign knowledge-intensive business processes,understand beauty preferences across target markets,0.7184,0.6268
+t098,preserve carrier data for future use,maintain patient care during operational disruptions,recover university cloud application data after loss,0.5864,0.5145
+t099,choose a band for an Apple Watch,inspect manufactured items for defects and irregularities,keep a brand cited in AI search answers,0.7288,0.6328
+t100,prepare clients' individual tax returns from financial records,prepare tax returns for clients,prepare life insurance quotes for prospective policyholders,0.0695,0.5816
+t101,offer skin-care benefits to textile customers,create a customer-facing mobile service,give friends beverages as gifts,0.5954,0.6042
+t102,assess financial markets to guide trading decisions,investigate case evidence and account for findings,analyze financial information to guide investment decisions,0.5262,0.1922
+t103,complete work and creative tasks while away from a desk,travel around town independently,complete work tasks away from a desk,0.4434,0.113
+t104,prepare tax returns for clients,prepare clients' individual tax returns from financial records,deliver required legal documents to case participants,0.0695,0.4615
+t105,draft complete written content for a specific purpose,create and manage advertising campaigns for a business,write clear business communications,0.5764,0.4449
+t106,repurpose sentimental materials into useful personal items,give someone a lasting Easter keepsake,express admiration for a favorite artist through personal style,0.4703,0.6514
+t107,create distinctive visual patterns in interior spaces,illuminate surroundings during outdoor activities and daily tasks,create and share visual content,0.5433,0.4503
+t108,identify adverse events and product complaints in patient interactions,manage value-based care agreements and financial risk,complete patient encounter records and related care orders,0.6172,0.4485
+t109,create a presentation for a business purpose,write clear business communications,understand difficult material in a college course,0.4258,0.6587
+t110,develop products for home monitoring and control,complete work tasks away from a desk,"monitor stock levels, prices, and product placement on retail shelves",0.6261,0.4785
+t111,coordinate media postproduction and content supply chain work,create professional video productions,earn revenue from idle media production resources,0.4432,0.4598
+t112,find manufacturing partners for packaged consumer goods,manage agricultural product trades from bids through delivery,source production capacity for media projects,0.6183,0.6304
+t113,find funding partners for shelved cell and gene therapy programs,find manufacturing partners for packaged consumer goods,support pets' health through their diets,0.5209,0.7011
+t114,modernize mission-critical federal systems and data,manage maintenance work for operational assets,process large datasets for professional work,0.5768,0.4433
+t115,promote offerings to aging adults and caregivers,deliver required legal documents to case participants,stay in contact with family across long distances,0.5903,0.5198
+t116,prepare and sell food to carnival crowds,give friends beverages as gifts,serve rosé wine at summer gatherings,0.4666,0.4468
+t117,identify nearby objects and hazards for autonomous vehicle operation,develop products that monitor and control equipment remotely,equip vehicle models to handle varied driving conditions,0.6566,0.5204
+t118,modernize enterprise IT systems,advocate for an organization's policy positions,manage a company's intellectual property portfolio,0.6364,0.6141
+t119,promote permanent lighting services to local homeowners,attract prospective customers to a business,illuminate surroundings during outdoor activities and daily tasks,0.5173,0.4412
+t120,restore hair growth in thinning scalp areas,resolve customer service inquiries,restore patients’ facial volume,0.7547,0.4496
+t121,assess business exposure to biodiversity and nature risks,assess legal documents for risks and needed changes,monitor areas of interest for security threats,0.4756,0.5301
+t122,"manage occasional gas, bloating, and digestive discomfort",manage blood glucose during everyday diabetes care,choose appropriate care for health conditions,0.4408,0.473
+t123,decide how to protect a household's home and vehicles,stay in contact with family across long distances,protect tablets from theft,0.6326,0.4696
+t124,understand beauty preferences across target markets,understand consumer opinions to guide marketing decisions,resolve customer service issues across language barriers,0.352,0.6719
+t125,produce test samples for automotive partner evaluations,deliver model training and serving services to enterprise customers,obtain compatible parts for vehicle maintenance and repairs,0.5809,0.4466
+t126,manage communications network and service operations,operate AI systems in production,develop and maintain software projects,0.5511,0.4926
+t127,use market and consumer insights to guide business decisions,identify customers likely to churn or convert,track changes in consumer perceptions of brands,0.5388,0.3649
+t128,maintain focus and energy during demanding daily activities,maintain daytime energy and mental focus,maintain energy and focus during daytime activities,0.1495,0.1135
+t129,secure spinal screws in challenging spinal reconstructions,maintain regulatory compliance for Salesforce environments,learn to service electric vehicle charging systems,0.6973,0.7047
+t130,exchange mission data during military operations,preserve carrier data for future use,modernize mission-critical federal systems and data,0.4871,0.4747
+t131,keep people cool in larger indoor spaces,protect electronic equipment from electrical surges and shock hazards,enjoy distinctive alcoholic drinks,0.5725,0.6212
+t132,move fluids through vehicle and equipment systems,manage electricity supply at commercial and industrial facilities,manage commercial vehicle use and maintenance,0.5856,0.496
+t133,analyze extensive documents to answer complex questions,derive business predictions from relationships across company data,assess legal documents for risks and needed changes,0.5774,0.4423
+t134,contribute to breast cancer support efforts,determine appropriate treatments for patients with solid tumors,make care decisions for a loved one with dementia,0.5416,0.6327
+t135,protect metal enclosures from corrosion at seal joints,keep household floors and carpets clean,seal industrial connections exposed to extreme temperatures,0.7358,0.3519
+t136,prepare Mexican-style asada meals at home,"choose foods, beverages, and fragrances suited to personal tastes",enjoy distinctive alcoholic drinks,0.6088,0.6293
+t137,coordinate family schedules and household responsibilities,"manage pets’ daily feeding, hydration, and litter care",maintain energy and focus during daytime activities,0.4951,0.5936
+t138,protect feet from cold and wet during winter outdoor activities,manage financial exposure across agricultural commodity trades,relieve bodily needs during a spaceflight,0.7114,0.6154
+t139,share personal reflections with other event attendees,find peer support for challenges after military service,maintain daytime energy and mental focus,0.6461,0.6956
+t140,address personal behavioral and mental health concerns,discuss pain treatment and substance use with patients,document behavioral health client sessions,0.6062,0.4693
+t141,maintain personal hygiene and grooming,clean dirt and buildup from a dog's ears and eyes,clean an infant's hair and skin,0.4804,0.3942
+t142,assess breast tumor margins during breast-conserving surgery,exchange mission data during military operations,contribute to breast cancer support efforts,0.6961,0.5039
+t143,restore vehicle engine timing and belt drives,produce work deliverables from existing project materials,switch a Bronco between enclosed and open-air driving,0.6777,0.5699
+t144,watch films and series reflecting urban culture,understand conversations in unfamiliar languages,monitor security activity across multiple business locations,0.6741,0.6416
+t145,anticipate environmental impacts on industrial development,create structured presentations from source material,establish compliant environments for life sciences operations,0.7495,0.6076
+t146,keep track of time during daily activities,investigate case evidence and account for findings,monitor activity around a home while away,0.6105,0.4189
+t147,protect Sprinter van interiors from dirt and wear,disinfect frequently touched workstation surfaces,protect eyes from sunlight while maintaining unobstructed vision,0.5462,0.5105
+t148,make decisions about hiring and employee development,evaluate job applicants and select candidates to advance,prepare restaurant promotions for local events,0.3055,0.6586
+t149,preserve genetic material from endangered wildlife,deliver video programs at their intended quality,preserve perishable food for later use,0.6345,0.4583
+t150,integrate AI into business operations,apply AI agents to enterprise business tasks,manage a company's intellectual property portfolio,0.2726,0.6058
+t151,watch movies and sports at home,eat meals while seated in business dining areas,watch sports events and highlights at home,0.6346,0.1594
+t152,use organizational history to guide business decisions,prioritize organizational cyber risks by business impact,track policy developments affecting an organization's interests,0.5626,0.4966
+t153,explain children's dental findings to parents,spot early signs of health problems in cats,create structured presentations from source material,0.6424,0.7452
+t154,report workers' compensation data to the rating bureau,develop predictive models from data,verify safety properties of mission-critical systems,0.657,0.6804
+t155,resolve enterprise IT operations issues,manage costs of cloud data workloads,manage business IT operations,0.5707,0.2434
+t156,create and maintain employee benefit plans for clients,understand and use employee health benefits,create and manage advertising campaigns for a business,0.3018,0.5814
+t157,manage electricity supply at commercial and industrial facilities,charge multiple personal devices from a shared power source,manage maintenance work for operational assets,0.5095,0.434
+t158,resolve support issues with manufacturing execution systems,handle customer inquiries and service requests,resolve employees' routine IT support requests,0.5123,0.3853
+t159,remember and retrieve key information from meetings and conversations,"record thoughts, ideas, and reminders",highlight shared meeting content for participants,0.3065,0.3015
+t160,remove stains from upholstered and leather furniture,clean an infant's hair and skin,keep household floors and carpets clean,0.4858,0.3603
+t161,maintain utility transmission and distribution infrastructure,deliver stored battery power to the electricity grid,supply electricity to off-grid industrial sites,0.4218,0.4148
+t162,clean dirt and buildup from a dog's ears and eyes,keep household floors and carpets clean,locate and identify enemy assets in contested areas,0.4898,0.69
+t163,present a business professionally to prospective customers,derive business insights from enterprise data,help prospective customers discover a company's products and services,0.6423,0.3141
+t164,obtain ingredients needed to make margaritas at home,prepare Mexican-style asada meals at home,increase antioxidant intake through food,0.5117,0.683
+t165,understand and use employee health benefits,find paid work using healthcare expertise,resolve insurance coverage questions for agency teams,0.3987,0.5102
+t166,provide children with essential daily vitamins,"manage pets’ daily feeding, hydration, and litter care",manage stress and unwind from daily demands,0.5461,0.7039
+t167,mow a residential lawn,travel around town independently,irrigate crops according to their growing conditions,0.6483,0.4958
+t168,identify applicable privacy laws and obligations,ensure data use complies with privacy and consent requirements,advocate for an organization's policy positions,0.3237,0.6511
+t169,manage clinical AI applications in health-system workflows,build and operate production AI applications,manage data for transaction-processing applications,0.3628,0.5072
+t170,investigate and respond to cybersecurity incidents,protect organizational infrastructure and data from cyberattacks,resolve enterprise IT operations issues,0.2788,0.4182
+t171,train and run generative AI models,manage AI use across an organization,train and run AI models,0.4333,0.0921
+t172,invest capital in an energy utility,attract prospective customers to a business,assess healthcare investments with industry expertise,0.6432,0.494
+t173,continue care for ongoing medical conditions while abroad,undergo peritoneal dialysis treatment at home,determine appropriate treatments for patients with solid tumors,0.5075,0.6241
+t174,recover from strenuous physical activity,complete everyday walks despite fatigue or discomfort,protect eyes from sunlight while maintaining unobstructed vision,0.3882,0.622
+t175,recruit qualified healthcare travelers for open assignments,recruit eligible liver disease patients for clinical trials,find and cultivate prospective job candidates,0.3523,0.3692
+t176,develop and maintain software projects,manage electricity supply at commercial and industrial facilities,manage data for transaction-processing applications,0.5987,0.4431
+t177,evaluate student essays against writing criteria,identify grammar and usage problems in student writing,monitor conditions at specific locations on Earth,0.4228,0.6959
+t178,clean a residential swimming pool,promote permanent lighting services to local homeowners,keep household floors and carpets clean,0.6543,0.3818
+t179,perform total ankle replacement according to a surgical plan,manage consumer electronics resale operations,prevent wrong-site surgery during surgical planning,0.6163,0.5128
+t180,protect software development credentials from exposure,identify and prioritize security exposures across enterprise endpoints,verify that security controls prevent lateral movement,0.5152,0.5002
+t181,manage personal health to prevent chronic illness,maintain energy and cognitive function as they age,make sustained changes to personal health behaviors,0.4725,0.3078
+t182,monitor the status of freight shipments,carry personal belongings during travel,assess business clients' insurance and financing gaps,0.6013,0.6547
+t183,track changes in consumer perceptions of brands,create presentations to communicate ideas to an audience,use market and consumer insights to guide business decisions,0.6516,0.3649
+t184,handle customer inquiries and service requests,provide emergency support to older adults living at home,resolve employees' routine IT support requests,0.5536,0.3663
+t185,train autonomous vehicles to make safe decisions in rare road situations,train security teams to handle cyber threats,identify nearby objects and hazards for autonomous vehicle operation,0.5941,0.3569
+t186,research legal issues for client matters,organize documents for legal cases,report an organization's compliance with regulatory obligations,0.3031,0.5262
+t187,create professional video productions,distribute video programming to Smart TV viewers,present a business professionally to prospective customers,0.4712,0.5453
+t188,find customers for unused manufacturing capacity,manage electricity supply at commercial and industrial facilities,remove counterfeit and unauthorized product listings,0.6406,0.6384
+t189,repair vehicle engine systems,"manage occasional gas, bloating, and digestive discomfort",start a vehicle with a dead battery,0.5934,0.4979
+t190,implement manufacturing execution systems in factories,maintain regulatory compliance for Salesforce environments,place trades on financial market movements,0.6239,0.64
+t191,learn to service electric vehicle charging systems,modernize legacy plant control and safety systems,connect vehicle power systems to related control equipment,0.5735,0.3877
+t192,customize vehicles with interior and exterior accessories,buy a ready-to-drink beverage while away from home,clean dirt and buildup from a dog's ears and eyes,0.6409,0.6305
+t193,communicate with people who speak another language,understand lessons delivered in another language,give friends beverages as gifts,0.2901,0.5735
+t194,make robots manipulate objects to complete physical tasks,organize cargo in Sprinter vans,modernize legacy plant control and safety systems,0.6213,0.6591
+t195,dress for outdoor adventures and everyday occasions,equip vehicle models to handle varied driving conditions,"choose foods, beverages, and fragrances suited to personal tastes",0.5092,0.5195
+t196,validate healthcare product concepts with decision-makers,verify loan application information for lending decisions,prepare salespeople to sell changing company offerings,0.4817,0.6043
+t197,deploy AI solutions across enterprise operations,govern AI use across business operations,manage AI use across an organization,0.3429,0.2523
+t198,earn income by tutoring courses they know,hire employees for hourly positions,find paid work using healthcare expertise,0.6756,0.603
+t199,comfort a loved one with dementia during recurring separation anxiety,check on an infant while away from the nursery,manage challenges while completing physical therapy exercises at home,0.5158,0.5536
+t200,"manage pets’ daily feeding, hydration, and litter care",locate business-critical equipment and other fleet assets,manage maintenance work for operational assets,0.631,0.4875
+t201,meet vehicle safety requirements across global markets,design bicycle frames that meet performance and safety requirements,comply with school emergency notification mandates,0.4605,0.6132
+t202,find and cultivate prospective job candidates,develop recruitment messaging for prospective candidates,fill executive leadership positions with qualified candidates,0.2703,0.4349
+t203,purchase wholesale inventory for retail resale,identify and track workplace assets and inventory,restore client systems and data after disruption,0.4708,0.6576
+t204,"record thoughts, ideas, and reminders",provide enterprise agents with current knowledge and memory,detect mobile-device movement for interactive functions,0.4464,0.6177
+t205,keep wine and beverages chilled for home entertaining,buy a ready-to-drink beverage while away from home,maintain cooling in heavy-duty truck engines,0.4303,0.5782
+t206,hold conversations across language barriers,communicate with people who speak another language,manage communications network and service operations,0.0908,0.5038
+t207,create stop-motion videos,create professional video productions,create product visuals that meet brand and retailer requirements,0.3831,0.5484
+t208,plan and execute marketing campaigns,create and manage advertising campaigns for a business,determine which marketing campaigns generate sales,0.1446,0.2838
+t209,advocate for an organization's policy positions,manage business IT operations,retain and delete organizational data according to policy,0.5888,0.488
+t210,reconcile carrier statements with agency accounts,move baggage carts between aircraft and baggage areas,monitor vessel systems from onboard control stations,0.4932,0.6004
+t211,process corporate action events for securities markets,manage data for transaction-processing applications,track policy developments affecting an organization's interests,0.5584,0.5196
+t212,formulate skincare products with glycolic acid,protect sensitive skin from UV damage,care for facial skin through summer,0.4285,0.435
+t213,capture photos and videos from above,inspect infrastructure for damage and anomalies,develop products that monitor and control equipment remotely,0.6054,0.5999
+t214,monitor vessel systems from onboard control stations,monitor maritime environments for hazards and unauthorized vessels,develop products that monitor and control equipment remotely,0.3001,0.3387
+t215,find and fix vulnerabilities in applications,investigate and respond to cybersecurity incidents,manage security risks in enterprise AI systems,0.3645,0.4459
+t216,oversee safety and operations across a commercial vehicle fleet,monitor security activity across multiple business locations,manage safety and compliance for commercial vehicle fleets,0.5106,0.1077
+t217,remove counterfeit and unauthorized product listings,identify unreported wrong-site surgeries in patient records,assess the legitimacy of customer transactions,0.5811,0.4317
+t218,achieve restorative sleep through the night,develop products for home monitoring and control,protect eyes from sunlight while maintaining unobstructed vision,0.6071,0.5628
+t219,communicate in grammatically correct English with Westerners,communicate with people who speak another language,analyze extensive documents to answer complex questions,0.2856,0.7189
+t220,integrate gas compressors into mobile LPG systems,implement manufacturing execution systems in factories,combine scattered carrier data for analysis,0.7,0.634
+t221,protect Surface tablets from theft in public places,store seasonal household belongings,protect tablets from theft,0.5392,0.1103
+t222,attract customers to dealership service departments,attract prospective clients to a financial advisory practice,create and maintain employee benefit plans for clients,0.2937,0.6311
+t223,source production capacity for media projects,find operational information about facility work and costs,plan the structure of a marketing website,0.6269,0.7099
+t224,protect household furniture from stains and spills,illuminate surroundings during outdoor activities and daily tasks,develop products for home monitoring and control,0.5086,0.594
+t225,identify recurring product failures across customer fleets,monitor the status of freight shipments,monitor maritime environments for hazards and unauthorized vessels,0.5447,0.5999
+t226,travel with family members to destinations,engage in daily physical activity,travel around town independently,0.5715,0.4033
+t227,qualify nylon compounds for metal-replacement components,keep product visuals compliant across retailer product pages,find manufacturing partners for packaged consumer goods,0.7236,0.7192
+t228,experience a buzz without alcohol,develop emotional self-regulation and healthy social connections,drink an American single malt whiskey,0.6443,0.4734
+t229,clean up household spills and messes,keep household floors and carpets clean,maintain and repair automobiles,0.2639,0.5605
+t230,earn rewards for maintaining a regular exercise routine,manage personal bank accounts and finances,administer customer loyalty programs and member rewards,0.582,0.4546
+t231,manage initiatives that deliver organizational strategic priorities,advocate for an organization's policy positions,track policy developments affecting an organization's interests,0.4275,0.5084
+t232,maintain a balanced immune response,maintain energy and cognitive function as they age,support the body's immune defenses,0.5447,0.2021
+t233,document behavioral health client sessions,assess treatment response in people with common mental health disorders,address personal behavioral and mental health concerns,0.5139,0.4693
+t234,manage everyday stress and anxiety,manage personal health to prevent chronic illness,manage challenges while completing physical therapy exercises at home,0.4855,0.478
+t235,plan oncology trials for representative enrollment across research sites,assess patients and recommend appropriate treatment,prepare restaurant promotions for local events,0.5018,0.6264
+t236,move baggage carts between aircraft and baggage areas,move fluids through vehicle and equipment systems,move materials between work areas,0.3921,0.2184
+t237,protect an iPad from damage during use and transport,charge multiple personal electronics together,protect tablets from theft,0.5227,0.278
+t238,satisfy hunger between meals with savory food,get head support suited to sleeping preferences,eat meals while seated in business dining areas,0.6761,0.3361
+t239,provide visitors with aquatic recreation at leisure venues,clean a residential swimming pool,share personal videos privately with selected people,0.462,0.6897
+t240,recover university cloud application data after loss,restore patients’ facial volume,develop skills for building business applications,0.5561,0.622
+t241,recruit eligible liver disease patients for clinical trials,attract prospective customers to a business,enjoy musical performances and interact with performers,0.484,0.6217
+t242,remove selected material from semiconductor wafer layers,handle fragile components during manufacturing,move materials between work areas,0.5301,0.4915
+t243,protect sensitive data during AI processing,integrate AI into business operations,train and run AI models,0.4753,0.4595
+t244,diagnose and prioritize incidents affecting IT infrastructure,assess infrastructure asset value from operating condition,process corporate action events for securities markets,0.4903,0.6209
+t245,develop emotional self-regulation and healthy social connections,manage everyday stress and anxiety,share personal moments with close friends,0.4468,0.5269
+t246,find operational information about facility work and costs,track tools and work-in-progress across manufacturing workstations,administer employee benefits for a small business,0.5267,0.6207
+t247,develop skills for building business applications,build and maintain software applications,develop and maintain JavaScript applications,0.2543,0.3391
+t248,enjoy musical performances and interact with performers,present a business professionally to prospective customers,play sports and racing games through physical interaction,0.5687,0.5482
+t249,maintain data quality across enterprise datasets,meet governance requirements for enterprise data,maintain accurate records of enterprise IT assets and relationships,0.3528,0.463
+t250,coordinate facility maintenance across multiple store locations,collect and manage factory equipment data,identify and track workplace assets and inventory,0.4859,0.4865
+t251,manage returned products through repair and inventory recovery,retain and delete organizational data according to policy,handle fragile components during manufacturing,0.596,0.4813
+t252,find suitable travel healthcare work assignments,customize vehicles with interior and exterior accessories,choose appropriate care for health conditions,0.7082,0.4718
+t253,book service appointments for dealership customers,convert vehicle shoppers into dealership sales,organize documents for legal cases,0.3817,0.5704
+t254,learn school subjects they have not yet mastered,create a presentation for a business purpose,learn and retain material presented in lectures,0.6469,0.444
+t255,understand how lifestyle choices may shape future appearance,create printed photographs of memorable moments,prepare salespeople to sell changing company offerings,0.6853,0.7263
+t256,derive business insights from enterprise data,build and evolve business processes for insurers and financial firms,prepare tax returns for clients,0.4225,0.5785
+t257,converse with people who speak another language,highlight shared meeting content for participants,record video content while presenting alone,0.6066,0.6147
+t258,"enjoy a sweet, chocolate-flavored coffee drink",soothe sensitive skin after procedures,satisfy hunger between meals with savory food,0.7337,0.6292
+t259,reduce electrical interference in AC-powered equipment,power outdoor equipment where electrical outlets are unavailable,develop products that monitor and control equipment remotely,0.5133,0.5113
+t260,get expert guidance on health and longevity,maintain energy and cognitive function as they age,promote offerings to aging adults and caregivers,0.4675,0.6302
+t261,build and govern AI agent workflows for enterprise processes,govern AI use across business operations,move federal systems and data to new environments,0.3974,0.6087
+t262,store and protect outdoor equipment and valuables,charge multiple personal devices from a shared power source,protect Surface tablets from theft in public places,0.5553,0.3739
+t263,assess treatment response in people with common mental health disorders,tailor customer experiences to individual behavior,document behavioral health client sessions,0.6929,0.5139
+t264,stay in contact with family across long distances,maintain patient care during operational disruptions,communicate with people who speak another language,0.5816,0.4396
+t265,preserve perishable food for later use,keep wine and beverages chilled for home entertaining,store seasonal household belongings,0.3798,0.4101
+t266,evaluate AI-related trust claims,meet privacy requirements for organizational AI use,realize returns from AI investments,0.521,0.4728
+t267,make sustained changes to personal health behaviors,manage personal health to prevent chronic illness,maintain energy and cognitive function as they age,0.3078,0.5625
+t268,develop consistent selling behaviors across sales teams,improve customer success team performance,accept cryptocurrency for in-person sales,0.4235,0.643
+t269,write organizational goals aligned with business strategy,communicate an organization's purpose and values to its communities,prepare a small business for succession,0.4473,0.6219
+t270,select creators for international brand campaigns,deploy and manage Amazon Connect contact centers,get brand products included in AI search answers,0.6938,0.5551
+t271,restore client systems and data after disruption,recover university cloud application data after loss,coordinate facility maintenance across multiple store locations,0.2996,0.5445
+t272,understand consumer opinions to guide marketing decisions,assess financial markets to guide trading decisions,understand beauty preferences across target markets,0.4592,0.352
+t273,understand nearby activity and anticipate others’ actions,engage pets while owners are away,understand consumer opinions to guide marketing decisions,0.6004,0.5137
+t274,manage stress and unwind from daily demands,complete work and creative tasks away from a fixed workspace,pack belongings for a household move,0.3814,0.5714
+t275,get head support suited to sleeping preferences,monitor an infant's wellbeing and daily care,resolve questions about a hotel before booking a stay,0.699,0.6799
+t276,understand speech in everyday conversations,manage everyday stress and maintain emotional balance,understand spoken conversations in unfamiliar languages,0.6473,0.1705
+t277,assess candidates for open positions,review and revise business contracts before approval,place spread bets and CFD trades away from a desk,0.5672,0.6816
+t278,assess the condition and service needs of deployed equipment,restore vehicle engine timing and belt drives,inspect infrastructure for damage and anomalies,0.6019,0.2865
+t279,control underarm perspiration and body odor,"manage occasional gas, bloating, and digestive discomfort",restore patients’ facial volume,0.5001,0.674
+t280,identify and investigate cybersecurity threats to an organization,investigate and respond to cybersecurity incidents,assess organizational systems for exploitable security weaknesses,0.2395,0.2675
+t281,map and guide cardiac ablation for atrial fibrillation,manage electricity supply at commercial and industrial facilities,maintain a balanced immune response,0.667,0.7142
+t282,realize returns from AI investments,demonstrate AI compliance to regulators,raise capital for early-stage crypto projects,0.5399,0.555
+t283,identify bullying incidents among students on campus,comply with school emergency notification mandates,protect Surface tablets from theft in public places,0.5533,0.6479
+t284,assess infrastructure asset value from operating condition,"assess contract terms, obligations, and risks",identify and track workplace assets and inventory,0.5319,0.4666
+t285,report an organization's compliance with regulatory obligations,fulfill financial regulatory reporting obligations,demonstrate AI compliance to regulators,0.177,0.2873
+t286,understand difficult material in middle and high school courses,reflect on personal experiences and clarify what they want,understand difficult material in a college course,0.6031,0.1175
+t287,manage go-to-market work from lead identification through account expansion,prioritize consumer finance accounts for collection action,create and deploy marketing campaigns for local markets,0.6135,0.4286
+t288,deliver stored battery power to the electricity grid,maintain daytime energy and mental focus,protect an iPad from damage during use and transport,0.632,0.6844
+t289,understand others' communication preferences,prepare bids for public procurement contracts,communicate with people who speak another language,0.6732,0.3734
+t290,document events around their vehicle while driving or parked,monitor maritime environments for hazards and unauthorized vessels,ride off-road trails as a young driver,0.4586,0.5614
+t291,raise capital for early-stage crypto projects,assess the legitimacy of customer transactions,formulate skincare products with glycolic acid,0.6659,0.6878
+t292,redesign knowledge-intensive business processes,modernize legacy business applications,evaluate solutions for marketing content operations,0.4527,0.6683
+t293,assess inflammatory bowel disease activity in patients,verify loan application information for lending decisions,assess healthcare investments with industry expertise,0.664,0.6335
+t294,"access mainframe, AS/400, and Unix systems remotely",restore client systems and data after disruption,govern machine identities and credentials across enterprise systems,0.4509,0.4747
+t295,assess patients and recommend appropriate treatment,develop predictive models from data,choose appropriate care for health conditions,0.5769,0.3298
+t296,maintain daytime energy and mental focus,improve the visual design of presentation slides,maintain mobility and balance as they age,0.6477,0.5384
+t297,manage commercial vehicle use and maintenance,store and protect outdoor equipment and valuables,manage maintenance work for operational assets,0.4949,0.3482
+t298,examine patient tissue samples for pathological findings,validate healthcare product concepts with decision-makers,investigate case evidence and account for findings,0.6377,0.4507
+t299,analyze client and firm data for wealth management decisions,assess the financial value of intellectual property portfolios,monitor personal wealth for changes requiring action,0.4959,0.3773

@@ -367,8 +367,10 @@ def review_context(task, file, order="asc"):
 	pending.sort(key=lambda r: (r["id"] not in confidence, sign * confidence.get(r["id"], 0)))
 
 	# Confident rows whose decision the app can record, as a label or a reasoned skip.
+	# None in a hold-out file: every hold-out label is read by a human.
+	holdout = bool(get_db()["holdout_files"].count_documents({"_id": f"{task['slug']}/{file}"}))
 	recordable = set(task["csv_decisions"]) | {reason for _, reason in task["extra_actions"]}
-	confident = [
+	confident = [] if holdout else [
 		r for r in pending
 		if confidence.get(r["id"], 0) >= ACCEPT_CONFIDENCE
 		and r.get("decision", "").strip().lower() in recordable
@@ -388,6 +390,7 @@ def review_context(task, file, order="asc"):
 		"order": order,
 		"article": article,
 		"confident": confident,
+		"holdout": holdout,
 		"review_stats": {
 			"total": len(ids),
 			"reviewed": len(ids) - len(pending),
@@ -452,6 +455,7 @@ def review_root():
 @app.get("/review/{task}", response_class=HTMLResponse)
 def review_index(request: Request, task: str):
 	task = get_task(task)
+	held = set(get_db()["holdout_files"].distinct("file", {"task": task["slug"]}))
 	files = []
 	for name in review_files(task):
 		ids = [r["id"] for r in read_review_csv(task, name) if r.get("id")]
@@ -459,12 +463,39 @@ def review_index(request: Request, task: str):
 			"name": name,
 			"total": len(ids),
 			"reviewed": len(done_ids(task, ids)),
+			"holdout": name in held,
 		})
 	return templates.TemplateResponse(request, "review_index.html", {
 		"task": task,
 		"files": files,
 		"labeler": LABELER,
 	})
+
+
+@app.post("/review/{task}/holdout")
+async def review_holdout_post(request: Request, task: str):
+	"""Mark or unmark a review file as hold-out.
+
+	A hold-out file's article ids are kept out of training for every task and
+	used only to compare trained runs (py/classify/compare_runs.py). The ids are
+	snapshotted when the file is marked, so training needs no access to the CSV;
+	re-mark a file after adding rows to it.
+	"""
+	task = get_task(task)
+	form = await request.form()
+	file = os.path.basename(form["file"])
+	key = {"_id": f"{task['slug']}/{file}"}
+	if form.get("holdout") == "1":
+		get_db()["holdout_files"].replace_one(key, {
+			"task": task["slug"],
+			"file": file,
+			"ids": [r["id"] for r in read_review_csv(task, file) if r.get("id")],
+			"labeler": LABELER,
+			"marked_at": datetime.now(timezone.utc),
+		}, upsert=True)
+	else:
+		get_db()["holdout_files"].delete_one(key)
+	return RedirectResponse(f"/review/{task['slug']}", status_code=303)
 
 
 @app.get("/review/{task}/{file}", response_class=HTMLResponse)

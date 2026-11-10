@@ -1,0 +1,157 @@
+prompt 8a7e67b1; embedding sentence-transformers__all-mpnet-base-v2; runs sol 207, luna 605, luna r2 602 releases with needs
+
+                                       n   set: p10 median p90   first: p10 median p90
+same release
+  luna vs luna r2                    601   0.024 0.183 0.396   0.013 0.171 0.422
+  sol vs luna                        207   0.077 0.236 0.410   0.069 0.231 0.408
+
+pairs of releases, sol
+  sibling pairs                       14   0.016 0.233 0.536   0.016 0.202 0.511
+  cross-era, same topic               44   0.322 0.441 0.717   0.259 0.439 0.722
+  cross-era, different topic         440   0.740 0.864 0.957   0.740 0.868 0.973
+  all pairs                        21321   0.766 0.914 1.004   0.772 0.920 1.011
+  nearest other release              207   0.220 0.507 0.655   0.200 0.518 0.679
+
+pairs of releases, luna
+  sibling pairs                       14   0.127 0.426 0.675   0.124 0.424 0.675
+  cross-era, same topic               44   0.247 0.423 0.673   0.221 0.423 0.658
+  cross-era, different topic         440   0.741 0.886 0.972   0.735 0.890 0.980
+  all pairs                       182710   0.768 0.920 1.009   0.773 0.927 1.016
+  nearest other release              605   0.247 0.443 0.592   0.220 0.454 0.655
+
+retrieval: own output is the closest in run B (set distance), among non-sibling releases
+  luna -> luna r2    512 of 573  (89%)
+  sol -> luna       148 of 179  (83%)
+  luna -> sol        156 of 179  (87%)
+
+cross-era retrieval, sol: + when a new release's closest old cross-era release is from its topic
+    topic               own   best  new release; closest old cross-era release on a miss
+  + customer_support  0.420  0.420  Ada Launches new Customer Service AI Agent Powered by the Ada Reasonin
+  + hiring            0.323  0.323  AI recruitment platform interviews applicants on their schedule and gi
+  + coding            0.690  0.690  AI Startup Zencoder Emerges from Stealth to Deliver AI Coding Agents A
+  + contracts         0.428  0.428  Axiom Announces AI-Enabled Contracting Solution, Proven to Improve Eff
+  + presentations     0.321  0.321  Beautiful.ai Launches DesignerBot to Automatically Create Rich Present
+  + travel_planning   0.246  0.246  Booking.com Launches New AI Trip Planner to Enhance Travel Planning Ex
+  + clinical_notes    0.353  0.353  Core Solutions Launches Ambient Documentation for Behavioral Health
+  + clinical_notes    0.209  0.209  CureMD AI Scribe: Ambient-Powered Charting, Coding, Scheduling & Order
+  + writing           0.579  0.579  DeepL launches new French and Spanish AI writing assistant to improve 
+  + translation       0.436  0.436  DeepL Launches Voice API for Real-Time Speech Transcription and Transl
+  + presentations     0.329  0.329  Dokie AI Releases a Powerful AI PPT Maker to Help Users Create Profess
+  + tax               0.349  0.349  Firm360 Announces AutoPrep, Bringing AI Tax Prep Automation to Its Pra
+  + coding            0.649  0.649  IBM Launches watsonx Code Assistant, Delivers Generative AI-powered Co
+  + hiring            0.441  0.441  iCIMS Launches New GenAI-Powered Recruiting Assistant, Advancing its L
+  + translation       0.161  0.161  iFLYTEK Launches AI Translation Earbuds in the U.S.
+  + customer_support  0.413  0.413  Intercom Brings ChatGPT to Customer Service with Fin, the First AI Cus
+  + travel_planning   0.362  0.362  Mindtrip Ushers in the Future of Travel Planning with the Launch of Ne
+  + tutoring          0.717  0.717  Quizlet Launches 'Q-Chat,' AI Tutor Built with OpenAI API
+  + tutoring          0.424  0.424  StudyFetch Launches Industry-Altering Conversational AI Tutor
+  + tax               0.217  0.217  TaxGPT launches the first autonomous tax workflow agent
+  - writing           0.671  0.528  With Launch of Wordtune Spices, AI21 Labs Lifts the Curtain on the Fut
+                                  tutoring: Varsity Tutors Announces On-Demand Tutoring Now Available in
+  + contracts         0.382  0.382  Workday Introduces New Custom AI Model Library to Power Smarter, Faste
+  21 of 22 hits
+
+distance to the nearest pre-2020 pilot release, sol
+  tech_created                         4   0.404 0.647 0.718   0.361 0.647 0.718
+  cross-era, new                      22   0.220 0.397 0.616   0.169 0.356 0.577
+  ai_2023+                            38   0.496 0.633 0.695   0.496 0.640 0.721
+  other_2023+                         20   0.524 0.657 0.769   0.495 0.621 0.769
+    0.603  prevent AI coding agents from exposing developer credentials
+    0.318  verify clinical notes against patient encounters
+    0.691  verify that software changes meet application quality standards
+    0.730  assess and compare the performance of AI coding agents
+
+cross-era retrieval, luna: + when a new release's closest old cross-era release is from its topic
+    topic               own   best  new release; closest old cross-era release on a miss
+  + customer_support  0.329  0.329  Ada Launches new Customer Service AI Agent Powered by the Ada Reasonin
+  + hiring            0.250  0.250  AI recruitment platform interviews applicants on their schedule and gi
+  + coding            0.246  0.246  AI Startup Zencoder Emerges from Stealth to Deliver AI Coding Agents A
+  + contracts         0.298  0.298  Axiom Announces AI-Enabled Contracting Solution, Proven to Improve Eff
+  + presentations     0.285  0.285  Beautiful.ai Launches DesignerBot to Automatically Create Rich Present
+  + travel_planning   0.365  0.365  Booking.com Launches New AI Trip Planner to Enhance Travel Planning Ex
+  + clinical_notes    0.393  0.393  Core Solutions Launches Ambient Documentation for Behavioral Health
+  + clinical_notes    0.210  0.210  CureMD AI Scribe: Ambient-Powered Charting, Coding, Scheduling & Order
+  - writing           0.670  0.628  DeepL launches new French and Spanish AI writing assistant to improve 
+                                  presentations: New Mobile App, Ruri, Allows Users to Create Professional Pr
+  + translation       0.394  0.394  DeepL Launches Voice API for Real-Time Speech Transcription and Transl
+  + presentations     0.381  0.381  Dokie AI Releases a Powerful AI PPT Maker to Help Users Create Profess
+  + tax               0.251  0.251  Firm360 Announces AutoPrep, Bringing AI Tax Prep Automation to Its Pra
+  - coding            0.674  0.674  IBM Launches watsonx Code Assistant, Delivers Generative AI-powered Co
+                                  contracts: OpenText Announces New Contract Management System to Automat
+  + hiring            0.358  0.358  iCIMS Launches New GenAI-Powered Recruiting Assistant, Advancing its L
+  + translation       0.210  0.210  iFLYTEK Launches AI Translation Earbuds in the U.S.
+  + customer_support  0.329  0.329  Intercom Brings ChatGPT to Customer Service with Fin, the First AI Cus
+  + travel_planning   0.344  0.344  Mindtrip Ushers in the Future of Travel Planning with the Launch of Ne
+  + tutoring          0.487  0.487  Quizlet Launches 'Q-Chat,' AI Tutor Built with OpenAI API
+  + tutoring          0.376  0.376  StudyFetch Launches Industry-Altering Conversational AI Tutor
+  + tax               0.235  0.235  TaxGPT launches the first autonomous tax workflow agent
+  - writing           0.774  0.767  With Launch of Wordtune Spices, AI21 Labs Lifts the Curtain on the Fut
+                                  presentations: New Mobile App, Ruri, Allows Users to Create Professional Pr
+  + contracts         0.412  0.412  Workday Introduces New Custom AI Model Library to Power Smarter, Faste
+  19 of 22 hits
+
+distance to the nearest pre-2020 pilot release, luna
+  tech_created                         4   0.572 0.645 0.685   0.553 0.645 0.685
+  cross-era, new                      22   0.236 0.351 0.613   0.195 0.338 0.586
+  ai_2023+                            38   0.430 0.597 0.717   0.430 0.615 0.728
+  other_2023+                         20   0.567 0.653 0.749   0.522 0.668 0.780
+    0.607  protect software development credentials from exposure
+    0.557  verify AI-generated clinical notes against clinical conversations
+    0.686  verify software changes behave as intended
+    0.682  assess AI coding agent performance
+
+sol vs luna, furthest apart (set distance)
+
+  0.681  Quizlet Launches 'Q-Chat,' AI Tutor Built with OpenAI API (2023-03)
+    sol  master concepts covered in their studies
+    luna practice and understand concepts they are learning
+
+  0.626  Codeanywhere Launches a New Version of Their Cloud IDE to Make the Cloud as Fast as a Desktop (2015-11)
+    sol  develop and debug software without relying on a particular computer
+    luna develop and maintain software projects
+
+  0.592  Varsity Tutors Announces On-Demand Tutoring Now Available in Every U.S. Middle and High School Subject (2018-08)
+    sol  complete middle and high school homework and prepare for exams
+    luna understand difficult material in middle and high school courses
+
+  0.578  AI Startup Zencoder Emerges from Stealth to Deliver AI Coding Agents Aimed at Developers (2024-10)
+    sol  develop new features for software products
+         fix defects in software code
+         verify that software components behave as intended
+    luna build and maintain software applications
+
+  0.559  With Launch of Wordtune Spices, AI21 Labs Lifts the Curtain on the Future of Writing (2023-01)
+    sol  write essays, articles, reports, and creative works
+    luna draft complete written content for a specific purpose
+
+  0.553  Samaya AI Launches the Agent Control Plane (ACP) to Advance AI Reasoning in Finance; Secures New Investment fr (2026-02)
+    sol  create, run, and govern AI agents for financial workflows
+    luna analyze financial information to guide investment decisions
+
+  0.528  Dokie AI Releases a Powerful AI PPT Maker to Help Users Create Professional Presentations Faster (2026-02)
+    sol  prepare presentations for business, education, and marketing
+    luna create structured presentations from source material
+
+  0.527  Introducing the Teradata Autonomous Knowledge Platform (2026-05)
+    sol  run enterprise AI with organizational data and context
+    luna operate AI systems in production
+
+leak: AI vs non-AI launches of 2023 on, luna, 10-fold AUC (mean, sd)
+  needs                         454 releases (238 AI)   0.884  0.041
+  needs that do not name AI     431 releases (215 AI)   0.870  0.046
+  what_it_is                    454 releases (238 AI)   0.963  0.017
+
+leak, same need: the models above fit on all 2023+ launches, mean P(AI) for old and new cross-era releases
+  needs         old 0.60  new 0.68   new above old in 9 of 11 topics
+  what_it_is    old 0.48  new 0.87   new above old in 11 of 11 topics
+
+triplets: 300 judged, 11 can't tell
+  all             289   80% agree
+  small gap        97   60% agree   gap 0.001-0.097
+  medium gap       96   84% agree   gap 0.100-0.206
+  large gap        96   95% agree   gap 0.206-0.707
+
+judges: agreement on triplets both answered, can't-tells left out
+  all-mpnet-base-v2  vs you                 289   80%
+  all-mpnet-base-v2  vs claude-sonnet-5-5   267   81%
+  you                vs claude-sonnet-5-5   261   84%

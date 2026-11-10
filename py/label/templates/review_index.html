@@ -21,8 +21,15 @@
 <ul class="files">
 	{% for f in files %}
 	<li>
-		<a href="/review/{{ task.slug }}/{{ f.name }}">{{ f.name }}</a>
-		<span class="prog">{{ f.reviewed }} / {{ f.total }} reviewed</span>
+		<span>{% if f.holdout %}<span class="badge holdout">hold-out</span>{% endif %}<a href="/review/{{ task.slug }}/{{ f.name }}">{{ f.name }}</a></span>
+		<span class="prog">{{ f.reviewed }} / {{ f.total }} reviewed
+			<form method="post" action="/review/{{ task.slug }}/holdout" style="display: inline"
+				onsubmit='return confirm({{ ("Return " ~ f.name ~ " to training? Runs trained after this may see its articles, which spoils it as a hold-out set." if f.holdout else "Mark " ~ f.name ~ " as hold-out? Its articles are kept out of training for every task and used only to compare runs.")|tojson }})'>
+				<input type="hidden" name="file" value="{{ f.name }}" />
+				<input type="hidden" name="holdout" value="{{ '0' if f.holdout else '1' }}" />
+				<button class="btn accept" type="submit">{{ 'unmark hold-out' if f.holdout else 'mark hold-out' }}</button>
+			</form>
+		</span>
 	</li>
 	{% endfor %}
 </ul>
